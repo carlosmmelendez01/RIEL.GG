@@ -1,26 +1,327 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* RIEL.GG brand palette */
+  --color-brand-crimson: var(--brand-crimson);
+  --color-brand-crimson-deep: var(--brand-crimson-deep);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-onyx: var(--brand-onyx);
+  --color-brand-aubergine: var(--brand-aubergine);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/*
+ * RIEL.GG — Theme tokens.
+ *
+ * Brand palette is theme-invariant (crimson / gold / purple stay the same
+ * across modes). Surface tokens (background / card / muted / border) flip
+ * between light and dark — next-themes toggles a `.dark` class on <html>
+ * which overrides the `:root` light defaults below.
+ */
+:root {
+  /* --- Brand (constant across modes) --- */
+  --brand-crimson: oklch(0.4555 0.1734 19.27);     /* #A31F34 */
+  --brand-crimson-deep: oklch(0.36 0.155 19);
+  --brand-gold: oklch(0.853 0.1717 91.67);         /* #FFCC00 — bright; see --brand-gold-ink for light-bg text */
+  --brand-gold-ink: oklch(0.6 0.18 76);            /* darker gold for readable text on white */
+  --brand-purple: oklch(0.6094 0.2734 322.31);     /* #C026D3 — accent magenta */
+  --brand-aubergine: #2a0431;
+  --brand-ink: oklch(0.0986 0 0);                  /* #0A0A0A — the brand black */
+  --brand-onyx: oklch(0.16 0 0);
+
+  /* --- LIGHT THEME SURFACES (default) --- */
+  --background: oklch(0.99 0 0);                   /* near-white */
+  --foreground: oklch(0.20 0.01 260);              /* near-black, slight cool */
+  --card: oklch(0.975 0 0);                        /* slightly lifted off bg */
+  --card-foreground: oklch(0.20 0.01 260);
+  --popover: oklch(0.99 0 0);
+  --popover-foreground: oklch(0.20 0.01 260);
+  --primary: var(--brand-crimson);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0 0);
+  --secondary-foreground: oklch(0.20 0.01 260);
+  --muted: oklch(0.945 0 0);
+  --muted-foreground: oklch(0.46 0.01 260);
+  --accent: var(--brand-crimson);
+  --accent-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.55 0.22 22);
+  --border: oklch(0 0 0 / 10%);
+  --input: oklch(0 0 0 / 12%);
+  --ring: var(--brand-crimson);
+
+  --chart-1: var(--brand-crimson);
+  --chart-2: var(--brand-gold-ink);                /* darker gold reads on light */
+  --chart-3: var(--brand-purple);
+  --chart-4: oklch(0.4 0 0);
+  --chart-5: oklch(0.7 0 0);
+
+  --radius: 0.625rem;
+
+  --sidebar: oklch(0.97 0 0);
+  --sidebar-foreground: oklch(0.20 0.01 260);
+  --sidebar-primary: var(--brand-crimson);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.93 0 0);
+  --sidebar-accent-foreground: oklch(0.20 0.01 260);
+  --sidebar-border: oklch(0 0 0 / 8%);
+  --sidebar-ring: var(--brand-crimson);
+
+  --grid-line: oklch(0 0 0 / 5%);
+}
+
+/*
+ * Dark theme override — applied when next-themes sets `.dark` on <html>.
+ * Brand palette stays the same; surface tokens flip.
+ */
+.dark {
+  --background: var(--brand-ink);                  /* #0A0A0A — the brand black */
+  --foreground: oklch(0.99 0 0);                   /* near-pure white for max contrast */
+  --card: oklch(0.165 0 0);                        /* clearly lifted ~6.5 pts over bg */
+  --card-foreground: oklch(0.99 0 0);
+  --popover: oklch(0.165 0 0);
+  --popover-foreground: oklch(0.99 0 0);
+  --primary: var(--brand-crimson);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.235 0 0);
+  --secondary-foreground: oklch(0.99 0 0);
+  --muted: oklch(0.235 0 0);
+  --muted-foreground: oklch(0.82 0 0);             /* lifted so secondary text reads cleanly */
+  --accent: var(--brand-crimson);
+  --accent-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 13%);                    /* visible separators */
+  --input: oklch(1 0 0 / 16%);
+  --ring: var(--brand-crimson);
+
+  --chart-1: var(--brand-crimson);
+  --chart-2: var(--brand-gold);                    /* bright gold reads fine on black */
+  --chart-3: var(--brand-purple);
+  --chart-4: oklch(0.7 0 0);
+  --chart-5: oklch(0.45 0 0);
+
+  --sidebar: oklch(0.075 0 0);                     /* slightly deeper than bg — floor effect */
+  --sidebar-foreground: oklch(0.99 0 0);
+  --sidebar-primary: var(--brand-crimson);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.21 0 0);
+  --sidebar-accent-foreground: oklch(0.99 0 0);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: var(--brand-crimson);
+
+  --grid-line: oklch(1 0 0 / 6%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* Inter features: open digits + alternate 1 + single-story a */
+    font-feature-settings:
+      "rlig" 1, "calt" 1,
+      "ss01" 1, /* open digits — clearer 4, 6, 9 */
+      "cv05" 1, /* single-story 'a' */
+      "cv11" 1; /* alternate '1' (with serif foot) */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
+  /*
+   * Theme-aware wordmark filter.
+   *
+   * The packaged wordmark PNG/SVG has WHITE "RIEL" + RED ".GG" (designed for
+   * dark backgrounds). In light mode we apply an invert + 180° hue rotate:
+   * white → black, red survives a round trip through cyan and back to red.
+   * No second asset needed.
+   */
+  .theme-flip-on-light {
+    transition: filter 200ms ease;
+  }
+  :where(:not(.dark)) .theme-flip-on-light {
+    filter: invert(1) hue-rotate(180deg);
+  }
+  /* Slightly heavier body weight reads better on dark surfaces */
+  body, p, li, span, td, th, dd, dt, label {
+    font-weight: 450;
+  }
+  strong, b {
+    font-weight: 600;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .text-gradient-brand {
+    background: linear-gradient(120deg, var(--brand-crimson) 0%, var(--brand-gold) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Faint grid for hero / section backgrounds */
+  .bg-grid-faint {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /*
+   * Ambient app background — a near-invisible crimson radial wash + faint
+   * grid layered over the body. Removes the "flat black" feel without
+   * being noticeable on its own. Applied via .bg-system on a parent element.
+   */
+  .bg-system {
+    position: relative;
+    isolation: isolate;
+  }
+  .bg-system::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 1200px 600px at 50% -10%, oklch(0.4555 0.1734 19.27 / 8%), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 100% 100%, oklch(0.4555 0.1734 19.27 / 4%), transparent 60%),
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px) 0 0 / 64px 64px,
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px) 0 0 / 64px 64px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 40%, transparent 90%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 40%, transparent 90%);
+  }
+
+  /*
+   * Gradient-only ambient background — for player-facing surfaces (/me).
+   * Same logic as .bg-system but without the grid lines, with richer
+   * crimson + purple radial washes. Feels more "consumer" / social.
+   */
+  .bg-system-gradient {
+    position: relative;
+    isolation: isolate;
+  }
+  .bg-system-gradient::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 1100px 700px at 18% -10%, oklch(0.4555 0.1734 19.27 / 18%), transparent 65%),
+      radial-gradient(ellipse 900px 600px at 90% 8%, oklch(0.5854 0.2531 318.36 / 14%), transparent 65%),
+      radial-gradient(ellipse 800px 600px at 50% 110%, oklch(0.4555 0.1734 19.27 / 10%), transparent 65%),
+      radial-gradient(ellipse 700px 500px at 100% 90%, oklch(0.5854 0.2531 318.36 / 8%), transparent 65%),
+      linear-gradient(180deg, oklch(0.18 0.01 260 / 0%) 0%, oklch(0.18 0.01 260 / 25%) 100%);
+  }
+
+  /* Activation glow — for primary CTAs that "activate" the system */
+  .glow-crimson {
+    box-shadow:
+      0 0 0 1px oklch(0.4555 0.1734 19.27 / 30%),
+      0 4px 12px -2px oklch(0.18 0.01 260 / 25%),
+      0 16px 36px -8px oklch(0.4555 0.1734 19.27 / 45%),
+      0 30px 80px -20px var(--brand-crimson);
+  }
+
+  .glow-crimson-sm {
+    box-shadow:
+      0 0 0 1px oklch(0.4555 0.1734 19.27 / 24%),
+      0 8px 20px -4px oklch(0.4555 0.1734 19.27 / 32%);
+  }
+
+  /* Card edge accent — subtle red top-edge gradient for "live" cards */
+  .edge-crimson {
+    position: relative;
+  }
+  .edge-crimson::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--brand-crimson), transparent);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  /* Pulsing crimson — for "live" indicators on the system */
+  .pulse-crimson {
+    animation: riel-pulse-crimson 2.4s ease-in-out infinite;
+  }
+  @keyframes riel-pulse-crimson {
+    0%, 100% {
+      box-shadow:
+        0 0 0 0 oklch(0.4555 0.1734 19.27 / 50%),
+        0 0 18px -2px oklch(0.4555 0.1734 19.27 / 40%);
+    }
+    50% {
+      box-shadow:
+        0 0 0 6px oklch(0.4555 0.1734 19.27 / 0%),
+        0 0 28px 0 oklch(0.4555 0.1734 19.27 / 65%);
+    }
+  }
+
+  /* Hover edge — used for cards that have a "tap to activate" affordance */
+  .hover-edge-crimson {
+    transition: box-shadow 200ms ease, border-color 200ms ease;
+  }
+  .hover-edge-crimson:hover {
+    border-color: oklch(0.4555 0.1734 19.27 / 50%);
+    box-shadow: 0 0 0 1px oklch(0.4555 0.1734 19.27 / 25%), 0 8px 24px -8px oklch(0.4555 0.1734 19.27 / 35%);
+  }
 }

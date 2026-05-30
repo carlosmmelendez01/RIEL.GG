@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 361.111">
+  <path d="M105.662,219.342H38.478c-4.531,0-8.204,3.673-8.204,8.204v13.82h71.388l4-4v-18.023Z" fill="#fff"/>
+  <path d="M105.662,168.801H38.478c-4.531,0-8.204,3.673-8.204,8.204v13.82h71.388l4-4v-18.023Z" fill="#fff"/>
+  <path d="M105.662,116.848H38.478c-4.531,0-8.204,3.673-8.204,8.204v13.82h71.388l4-4v-18.023Z" fill="#fff"/>
+  <polygon points="124.297 116.848 145.192 100.189 145.192 239.953 124.297 257.459 124.297 116.848" fill="#ff1e2d"/>
+  <g>
+    <rect x="657.493" y="206.809" width="17.788" height="17.788" fill="#ff1e2d"/>
+    <text transform="translate(163.827 224.598)" font-family="Ethnocentric-Regular, Ethnocentric" font-size="152"><tspan x="0" y="0" fill="#fff">RIEL </tspan><tspan x="514.363" y="0" fill="#ff1e2d" letter-spacing="0em">GG</tspan></text>
+  </g>
+</svg>

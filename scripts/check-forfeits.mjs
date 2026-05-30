@@ -1,0 +1,10 @@
+import { PrismaClient } from '@prisma/client';
+const p = new PrismaClient();
+const total = await p.match.count();
+const ff = await p.match.count({ where: { isForfeit: true } });
+const finished = await p.match.count({ where: { status: 'FINISHED' } });
+const forfeited = await p.match.count({ where: { status: 'FORFEITED' } });
+const oldest = await p.match.findFirst({ where: { isForfeit: true }, orderBy: { forfeitedAt: 'asc' }, select: { forfeitedAt: true } });
+const newest = await p.match.findFirst({ where: { isForfeit: true }, orderBy: { forfeitedAt: 'desc' }, select: { forfeitedAt: true } });
+console.log(JSON.stringify({ total, ff, finished, forfeited, ffRate: (ff/total*100).toFixed(1)+'%', oldest: oldest?.forfeitedAt, newest: newest?.forfeitedAt }, null, 2));
+await p.$disconnect();

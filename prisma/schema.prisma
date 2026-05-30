@@ -1,0 +1,1033 @@
+// RIEL OS — domain schema (v1).
+//
+// Hierarchy:
+//   League ── LeagueMembership ── School ── SchoolMembership ── User (auth)
+//                                   │
+//                                   └─ Team (program template)
+//                                        │
+//                                        └─ Roster (event-specific instance)
+//                                              ┊
+//   Season ── Competition ── Stage ── Round ── Match ── Game
+//
+// See docs/architecture.md for the full mental model + design decisions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ===========================================================================
+// IDENTITY
+// ===========================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  authId    String   @unique // bridge to Supabase auth.users.id
+  email     String   @unique
+  fullName  String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schoolMemberships      SchoolMembership[]
+  teamMemberships        TeamMembership[]
+  rosterMemberships      RosterMembership[]
+  leagueAdminships       LeagueAdminship[]
+  invitesCreated         Invite[]             @relation("InviteCreator")
+  matchReports           MatchReport[]
+  matchMessages          MatchMessage[]
+  announcementsAuthored  Announcement[]
+  auditLogEntries        AuditLog[]
+  reviewedModuleStatus   RosterModuleStatus[] @relation("ModuleReviewer")
+  forfeitsRecorded       Match[]              @relation("ForfeitRecorder")
+  playerCommentsReceived PlayerComment[]      @relation("PlayerCommentReceived")
+  playerCommentsAuthored PlayerComment[]      @relation("PlayerCommentAuthored")
+  playerGoals            PlayerGoal[]         @relation("PlayerGoalOwner")
+  applicationsReviewed   SchoolApplication[]  @relation("ApplicationReviewer")
+  feedback               Feedback[]
+}
+
+// ===========================================================================
+// LEAGUE — top-level (HEA / IHSEN / etc.)
+// ===========================================================================
+
+enum ClassificationKind {
+  SCHOLASTIC
+  COLLEGIATE
+  AMATEUR
+}
+
+model League {
+  id             String             @id @default(cuid())
+  name           String
+  slug           String             @unique
+  description    String?
+  logoUrl        String?
+  primaryColor   String?
+  classification ClassificationKind @default(SCHOLASTIC)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  memberships   LeagueMembership[]
+  adminships    LeagueAdminship[]
+  seasons       Season[]
+  invites       Invite[]
+  announcements Announcement[]
+  applications  SchoolApplication[]
+}
+
+enum LeagueRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+model LeagueAdminship {
+  id        String     @id @default(cuid())
+  leagueId  String
+  league    League     @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      LeagueRole @default(ADMIN)
+  createdAt DateTime   @default(now())
+
+  @@unique([leagueId, userId])
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+model LeagueMembership {
+  id                  String           @id @default(cuid())
+  leagueId            String
+  league              League           @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  schoolId            String
+  school              School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  status              MembershipStatus @default(PENDING)
+  displayNameOverride String? // league-scoped name override per their docs
+  joinedAt            DateTime         @default(now())
+
+  @@unique([leagueId, schoolId])
+}
+
+// ===========================================================================
+// SCHOOL (Group) — independent entity, can be in multiple leagues
+// ===========================================================================
+
+model School {
+  id             String   @id @default(cuid())
+  name           String
+  shortName      String?
+  code           String? // 3-letter tag for badges (e.g., "MCH")
+  city           String?
+  state          String?  @default("IN")
+  primaryColor   String?
+  secondaryColor String?
+  logoUrl        String?
+  ncesId         String?  @unique // National Center for Education Statistics ID
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  memberships       SchoolMembership[]
+  teams             Team[]
+  leagueMemberships LeagueMembership[]
+  invites           Invite[]
+  applications      SchoolApplication[]
+}
+
+enum SchoolRole {
+  MANAGER // full admin — invites, teams, registration
+  COACH // operational — rosters, matches
+  PLAYER
+}
+
+model SchoolMembership {
+  id        String     @id @default(cuid())
+  schoolId  String
+  school    School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      SchoolRole @default(PLAYER)
+  isOwner   Boolean    @default(false)
+  detached  Boolean    @default(false) // mid-season transfers / unlinks
+  createdAt DateTime   @default(now())
+
+  @@unique([schoolId, userId])
+  @@index([userId])
+}
+
+// ===========================================================================
+// SCHOOL APPLICATION — public /join submissions waiting on league approval
+// ---------------------------------------------------------------------------
+// A coach fills out /join → row lands in this table with status PENDING.
+// League admin approves → we create the School (if needed) + LeagueMembership
+// + a SchoolMembership for the coach as owner. Reject → status flipped, with
+// a reason copied to the AuditLog.
+//
+// We keep this separate from `Invite` because the application identifies a
+// school that doesn't yet exist as a tenant in the league. Invites assume
+// the school is already approved.
+// ===========================================================================
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model SchoolApplication {
+  id                 String            @id @default(cuid())
+  leagueId           String
+  league             League            @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  // Optional link to an existing School row — set when the applicant picked
+  // a school we already track. Null when they're proposing a brand-new one.
+  schoolId           String?
+  school             School?           @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  // Snapshot of submitted details (NCES results live in the applicant's head;
+  // we record what they typed so admins can verify without trusting later
+  // edits to the School row).
+  schoolName         String
+  schoolShort        String?
+  schoolCity         String?
+  schoolState        String?
+  schoolCode         String?
+  ncesId             String?
+  // Applicant
+  coachName          String
+  coachEmail         String
+  coachRole          String // free-text label: "Head Coach", "Athletic Director", etc.
+  reason             String? // optional context for the admin
+  // Lifecycle
+  status             ApplicationStatus @default(PENDING)
+  reviewedById       String?
+  reviewedBy         User?             @relation("ApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt         DateTime?
+  reviewerNotes      String? // admin's reason on reject, or freeform note on approve
+  // The membership we create on approval — lets us trace from application
+  // forward to its outcome.
+  resultMembershipId String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([leagueId, status, createdAt])
+  @@index([coachEmail])
+}
+
+// ===========================================================================
+// INVITES — polymorphic (school or league scope)
+// ===========================================================================
+
+enum InviteScope {
+  SCHOOL
+  LEAGUE
+}
+
+enum InviteStatus {
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  REVOKED
+}
+
+model Invite {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  scope           InviteScope
+  schoolId        String?
+  school          School?      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  leagueId        String?
+  league          League?      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User         @relation("InviteCreator", fields: [createdById], references: [id])
+  rolesGranted    String[] // serialized role names — depends on scope
+  grantsOwnership Boolean      @default(false)
+  // When set, only the user with this email can accept the invite. Used by
+  // SchoolApplication approval to lock the invite to the applicant.
+  intendedEmail   String?
+  maxUses         Int          @default(1)
+  usedCount       Int          @default(0)
+  expiresAt       DateTime?
+  status          InviteStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now())
+
+  // Exactly one of schoolId / leagueId must be set; enforced in app.
+}
+
+// ===========================================================================
+// GAME CATALOG
+// ===========================================================================
+
+model GameTitle {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  publisher String?
+  slug      String   @unique
+  iconUrl   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  formats      GameFormat[]
+  competitions Competition[]
+  teams        Team[]
+}
+
+model GameFormat {
+  id          String    @id @default(cuid())
+  gameTitleId String
+  gameTitle   GameTitle @relation(fields: [gameTitleId], references: [id], onDelete: Cascade)
+  name        String // e.g., "3v3 Standard", "5v5", "1v1"
+  playerCount Int
+
+  competitions Competition[]
+  teams        Team[]
+
+  @@unique([gameTitleId, name])
+}
+
+// ===========================================================================
+// TEAM — long-lived program template under a School
+// ===========================================================================
+
+enum SkillTier {
+  CLUB
+  JV
+  VARSITY
+  PREMIER
+  ACADEMY
+  MIDDLE_SCHOOL
+  UNIFIED
+}
+
+model Team {
+  id                  String      @id @default(cuid())
+  schoolId            String
+  school              School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  gameTitleId         String
+  gameTitle           GameTitle   @relation(fields: [gameTitleId], references: [id])
+  gameFormatId        String?
+  gameFormat          GameFormat? @relation(fields: [gameFormatId], references: [id])
+  skillTier           SkillTier   @default(VARSITY)
+  customName          String? // overrides auto-name when set
+  colorTag            String? // "Black", "Red" — auto-name suffix
+  primaryColor        String?
+  secondaryColor      String?
+  avatarUrl           String?
+  nameplateUrl        String?
+  heroImageUrl        String?
+  preferredRegions    String[]
+  // Availability windows — array of { weekday, startMinutes, endMinutes }
+  availabilityWindows Json?
+  // Manual rank for placement seeding
+  rank                Int?
+  // Running Elo, if league uses it
+  currentElo          Float?
+  archived            Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  memberships TeamMembership[]
+  rosters     Roster[]
+
+  @@index([schoolId])
+  @@index([gameTitleId])
+}
+
+enum TeamRole {
+  MANAGER
+  COACH
+  CAPTAIN
+  PLAYER
+}
+
+model TeamMembership {
+  id        String   @id @default(cuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      TeamRole @default(PLAYER)
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+// ===========================================================================
+// SEASON / COMPETITION / STAGE / ROUND
+// ===========================================================================
+
+model Season {
+  id        String   @id @default(cuid())
+  leagueId  String
+  league    League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  name      String // "Spring 2026"
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  competitions Competition[]
+  playerGoals  PlayerGoal[]
+}
+
+enum CompetitionKind {
+  SEASON_PLAY
+  TOURNAMENT
+  SCRIMMAGE_CUP
+}
+
+// ContentState controls visibility, ContentStatus reflects lifecycle.
+// Both apply at the Competition AND Stage level (per LeagueOS pattern).
+enum ContentState {
+  DRAFT
+  ACTIVE
+  COMPLETE
+}
+
+enum ContentStatus {
+  SEEDING
+  IN_PROGRESS
+  FINISHED
+}
+
+model Competition {
+  id                   String          @id @default(cuid())
+  seasonId             String
+  season               Season          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  name                 String // "Spring 2026 — Rocket League Varsity"
+  gameTitleId          String
+  gameTitle            GameTitle       @relation(fields: [gameTitleId], references: [id])
+  gameFormatId         String?
+  gameFormat           GameFormat?     @relation(fields: [gameFormatId], references: [id])
+  skillTier            SkillTier
+  kind                 CompetitionKind @default(SEASON_PLAY)
+  state                ContentState    @default(DRAFT)
+  status               ContentStatus   @default(SEEDING)
+  isOnline             Boolean         @default(true)
+  locationLabel        String?
+  registrationOpensAt  DateTime?
+  registrationClosesAt DateTime?
+  // Open-ended config — kept as Json so we can iterate without migrations.
+  rewardsConfig        Json?
+  discordConfig        Json?
+  resultsConfig        Json?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  stages              Stage[]
+  rosters             Roster[]
+  registrationModules RegistrationModule[]
+
+  @@index([seasonId])
+  @@index([gameTitleId, skillTier])
+}
+
+enum StageKind {
+  LEAGUE_PLAY
+  GROUP_STAGE
+  ROUND_ROBIN
+  SWISS
+  SINGLE_ELIM
+  DOUBLE_ELIM
+  PLACEMENT
+  CUSTOM
+}
+
+enum SchedulingMethod {
+  CUSTOM
+  ROUND_ROBIN
+  SINGLE_ELIM
+  DOUBLE_ELIM
+  SWISS
+  PLACEMENT
+}
+
+enum ConfirmationMode {
+  CONSENSUS // both sides' coach/manager confirms → Finished
+  DELAYED_AUTO // single confirmation auto-finishes after delay
+}
+
+enum ResultsReporterKind {
+  BOTH_SIDES
+  EITHER_SIDE
+  COACH_ONLY
+  ADMIN_ONLY
+}
+
+model Stage {
+  id               String           @id @default(cuid())
+  competitionId    String
+  competition      Competition      @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  name             String // "League Play", "Playoffs"
+  kind             StageKind
+  schedulingMethod SchedulingMethod @default(ROUND_ROBIN)
+  order            Int              @default(0)
+  state            ContentState     @default(DRAFT)
+  status           ContentStatus    @default(SEEDING)
+  startsAt         DateTime
+  endsAt           DateTime
+
+  // Format
+  bestOf        Int @default(3)
+  gamesPerMatch Int @default(3)
+
+  // Sequencing — pacing config for this stage
+  matchIntervalMinutes  Int     @default(60)
+  concurrentMatches     Boolean @default(true)
+  checkInWindowMinutes  Int     @default(15)
+  rescheduleCutoffHours Int     @default(24)
+
+  // Process — reporting + confirmation rules
+  resultsReporters       ResultsReporterKind @default(COACH_ONLY)
+  confirmationMode       ConfirmationMode    @default(CONSENSUS)
+  autoFinishAfterMinutes Int? // for DELAYED_AUTO
+
+  // Scoring
+  autoScoringEnabled  Boolean @default(false)
+  // Placement-specific
+  useRankAsInitialElo Boolean @default(false)
+  eloMultiplier       Int     @default(1000)
+  // Open-ended for points + LAN resources (out of scope for v1)
+  pointsConfig        Json?
+  resourcesConfig     Json?
+
+  rounds    Round[]
+  matches   Match[]
+  standings StageStanding[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([competitionId])
+}
+
+model Round {
+  id        String   @id @default(cuid())
+  stageId   String
+  stage     Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  name      String // "Week 1", "Quarterfinals"
+  order     Int      @default(0)
+  startsAt  DateTime
+  endsAt    DateTime
+  matches   Match[]
+  createdAt DateTime @default(now())
+
+  @@unique([stageId, order])
+}
+
+// ===========================================================================
+// REGISTRATION MODULES — per-Competition required onboarding steps
+// ===========================================================================
+
+enum ModuleKind {
+  GAME_ACCOUNT_LINK
+  DOCUMENT_UPLOAD
+  PARENTAL_CONSENT
+  OFFICIAL_APPROVAL
+  FEE_PAYMENT
+  CUSTOM
+}
+
+model RegistrationModule {
+  id            String      @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  type          ModuleKind
+  name          String
+  description   String?
+  required      Boolean     @default(true)
+  order         Int         @default(0)
+  config        Json? // free-form per-module (e.g., which game account, which form)
+  createdAt     DateTime    @default(now())
+
+  rosterStatus RosterModuleStatus[]
+}
+
+// ===========================================================================
+// ROSTER — Team's participation in a specific Competition
+// ===========================================================================
+
+// Multi-axis roster state — see docs/architecture.md for the rationale.
+enum RosterParticipation {
+  ACTIVE
+  INACTIVE
+}
+
+enum LockState {
+  OPEN
+  LOCKED
+}
+
+enum RosterLifecycle {
+  ACTIVE
+  ARCHIVED
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Roster {
+  id                 String              @id @default(cuid())
+  teamId             String
+  team               Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  competitionId      String
+  competition        Competition         @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  // Each axis controls a different concern — see docs/architecture.md.
+  participation      RosterParticipation @default(ACTIVE)
+  editLock           LockState           @default(OPEN)
+  presentationLock   LockState           @default(OPEN)
+  lifecycle          RosterLifecycle     @default(ACTIVE)
+  registrationStatus RegistrationStatus  @default(PENDING)
+  // Initial seeding fields (placement)
+  rank               Int?
+  initialElo         Float?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  members      RosterMembership[]
+  moduleStatus RosterModuleStatus[]
+  homeMatches  Match[]              @relation("HomeRoster")
+  awayMatches  Match[]              @relation("AwayRoster")
+  wonMatches   Match[]              @relation("WinnerRoster")
+  standings    StageStanding[]
+
+  @@unique([teamId, competitionId])
+  @@index([competitionId, registrationStatus])
+}
+
+enum RosterRole {
+  MANAGER
+  COACH
+  CAPTAIN
+  PLAYER
+}
+
+model RosterMembership {
+  id           String     @id @default(cuid())
+  rosterId     String
+  roster       Roster     @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         RosterRole @default(PLAYER)
+  jerseyNumber Int?
+  inGameName   String?
+  isStarter    Boolean    @default(true)
+  // Coach-assigned ranking within this roster (drives placement Elo).
+  teamRank     Int?
+  createdAt    DateTime   @default(now())
+
+  appearances GameAppearance[]
+  reportedBy  MatchReport[]    @relation("ReportingMember")
+
+  @@unique([rosterId, userId])
+  @@index([userId])
+}
+
+enum ModuleStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model RosterModuleStatus {
+  id           String             @id @default(cuid())
+  rosterId     String
+  roster       Roster             @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  moduleId     String
+  module       RegistrationModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  status       ModuleStatus       @default(PENDING)
+  evidence     Json?
+  reviewedById String?
+  reviewedBy   User?              @relation("ModuleReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([rosterId, moduleId])
+}
+
+// ===========================================================================
+// MATCH + GAME
+// ===========================================================================
+
+enum MatchStatus {
+  SCHEDULED
+  CHECKING_IN
+  IN_PROGRESS
+  AWAITING_CONFIRMATION
+  FINISHED
+  FORFEITED
+  CANCELED
+  DISPUTED
+}
+
+enum MatchSide {
+  HOME
+  AWAY
+}
+
+/**
+ * Why a match was forfeited. Constrained set so the Board Dashboard can
+ * aggregate cleanly. `OTHER` requires `forfeitNotes` to be populated.
+ */
+enum ForfeitReason {
+  OPPONENT_NO_SHOW
+  SCHEDULING_CONFLICT
+  INSUFFICIENT_ROSTER
+  TECHNICAL_ISSUES
+  PLAYER_ILLNESS
+  ELIGIBILITY_ISSUE
+  WEATHER_TRAVEL
+  OPPONENT_CONDUCT
+  OTHER
+}
+
+model Match {
+  id           String  @id @default(cuid())
+  stageId      String
+  stage        Stage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  roundId      String?
+  round        Round?  @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  // Home/Away rosters (event-scoped, not the long-lived Team)
+  homeRosterId String
+  homeRoster   Roster  @relation("HomeRoster", fields: [homeRosterId], references: [id])
+  awayRosterId String
+  awayRoster   Roster  @relation("AwayRoster", fields: [awayRosterId], references: [id])
+  // Bracket coordinates (null for league play)
+  bracketRound Int?
+  bracketSlot  Int?
+
+  scheduledAt DateTime
+  status      MatchStatus @default(SCHEDULED)
+
+  bestOf         Int     @default(3) // inherits from stage at creation
+  homeScore      Int? // count of game wins
+  awayScore      Int?
+  winnerRosterId String?
+  winnerRoster   Roster? @relation("WinnerRoster", fields: [winnerRosterId], references: [id])
+
+  // Confirmation tracking
+  homeConfirmedAt   DateTime?
+  homeConfirmedById String?
+  awayConfirmedAt   DateTime?
+  awayConfirmedById String?
+  finishedAt        DateTime?
+
+  // Forfeit / cancel
+  // `isForfeit` is the primary aggregation signal — set true whenever forfeit
+  // logic was invoked, regardless of whether the match also ran some games
+  // (covers both whole-match forfeits and rage-quit-after-game-1 scenarios).
+  // `status` may be either FORFEITED (no games played) or FINISHED (some games
+  // played then forfeited) when this flag is true.
+  //
+  // Submission flow (Phase 3 forfeit workflow):
+  //  - `rescheduleAttempted` is required (Yes/No) when a coach submits a forfeit
+  //  - `forfeitReason` is constrained to the ForfeitReason enum
+  //  - `forfeitNotes` is required when `forfeitReason` == OTHER, optional otherwise
+  isForfeit           Boolean        @default(false)
+  forfeitReason       ForfeitReason?
+  forfeitNotes        String?
+  rescheduleAttempted Boolean?
+  forfeitingSide      MatchSide?
+  forfeitedAt         DateTime?
+  forfeitedById       String?
+  forfeitedBy         User?          @relation("ForfeitRecorder", fields: [forfeitedById], references: [id], onDelete: SetNull)
+  canceledReason      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  games          Game[]
+  reports        MatchReport[]
+  messages       MatchMessage[]
+  playerComments PlayerComment[]
+
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([stageId])
+  @@index([isForfeit])
+  @@index([isForfeit, forfeitedAt]) // for the "recent forfeits" feed on Board
+}
+
+model Game {
+  id         String     @id @default(cuid())
+  matchId    String
+  match      Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  index      Int // 1, 2, 3 of a Bo3
+  homeScore  Int?
+  awayScore  Int?
+  // Win flag is required separately because score alone can be ambiguous.
+  winnerSide MatchSide?
+  isTie      Boolean    @default(false)
+  mode       String? // game mode (e.g., Erangel, Hardpoint)
+  map        String?
+  startedAt  DateTime?
+  endedAt    DateTime?
+  createdAt  DateTime   @default(now())
+
+  appearances GameAppearance[]
+
+  @@unique([matchId, index])
+}
+
+model GameAppearance {
+  id                 String           @id @default(cuid())
+  gameId             String
+  game               Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  rosterMembershipId String
+  rosterMembership   RosterMembership @relation(fields: [rosterMembershipId], references: [id], onDelete: Cascade)
+  // Substitution flag — bench players can sub in between games.
+  active             Boolean          @default(true)
+  characterPick      String? // e.g., Smash character, Valorant agent
+  stats              Json? // per-game stats (auto-populated when supported)
+
+  @@unique([gameId, rosterMembershipId])
+  @@index([rosterMembershipId])
+}
+
+// ===========================================================================
+// MATCH REPORTING + CHAT + EVIDENCE
+// ===========================================================================
+
+model MatchReport {
+  id                     String           @id @default(cuid())
+  matchId                String
+  match                  Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  // Who reported (Roster member who pressed Submit)
+  reportedByMembershipId String
+  reportedByMembership   RosterMembership @relation("ReportingMember", fields: [reportedByMembershipId], references: [id])
+  reportedByUserId       String
+  reportedByUser         User             @relation(fields: [reportedByUserId], references: [id])
+  homeScore              Int
+  awayScore              Int
+  notes                  String?
+  submittedAt            DateTime         @default(now())
+
+  evidence MatchReportEvidence[]
+
+  @@index([matchId])
+}
+
+model MatchReportEvidence {
+  id          String      @id @default(cuid())
+  reportId    String
+  report      MatchReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  storagePath String // Supabase Storage object path
+  contentType String?
+  label       String?
+  createdAt   DateTime    @default(now())
+}
+
+enum MessageKind {
+  TEXT
+  SYSTEM
+  EVIDENCE
+}
+
+model MatchMessage {
+  id             String      @id @default(cuid())
+  matchId        String
+  match          Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  authorUserId   String? // null = system message
+  author         User?       @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  kind           MessageKind @default(TEXT)
+  body           String
+  attachmentPath String?
+  createdAt      DateTime    @default(now())
+
+  @@index([matchId, createdAt])
+}
+
+// ===========================================================================
+// STANDINGS — cached aggregate per Stage
+// ===========================================================================
+
+model StageStanding {
+  id            String   @id @default(cuid())
+  stageId       String
+  stage         Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  rosterId      String
+  roster        Roster   @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  ties          Int      @default(0)
+  gameWins      Int      @default(0)
+  gameLosses    Int      @default(0)
+  pointsFor     Int      @default(0)
+  pointsAgainst Int      @default(0)
+  streak        Int      @default(0) // positive = wins, negative = losses
+  rank          Int?
+  elo           Float?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([stageId, rosterId])
+  @@index([stageId, rank])
+}
+
+// ===========================================================================
+// ANNOUNCEMENTS
+// ===========================================================================
+
+enum AnnouncementScope {
+  LEAGUE
+  COMPETITION
+  STAGE
+  SCHOOL
+  ROSTER
+  TEAM
+}
+
+enum AnnouncementAudience {
+  ALL
+  COACHES
+  PLAYERS
+  PARENTS
+  STAFF
+}
+
+model Announcement {
+  id          String               @id @default(cuid())
+  scope       AnnouncementScope
+  scopeRefId  String // ID of the scoped entity (no FK — polymorphic)
+  // Convenience scope: pin to a league for indexing/feed
+  leagueId    String?
+  league      League?              @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User                 @relation(fields: [authorId], references: [id])
+  title       String
+  body        String
+  pinned      Boolean              @default(false)
+  audience    AnnouncementAudience @default(ALL)
+  publishedAt DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([scope, scopeRefId, publishedAt])
+}
+
+// ===========================================================================
+// AUDIT LOG — first-class, ships from day one
+// ===========================================================================
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  actorUserId   String?
+  actorUser     User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  action        String // e.g., "ROSTER.CREATE", "MATCH.SCORE_EDIT", "REPORT.CONFIRM"
+  entityType    String
+  entityId      String
+  before        Json?
+  after         Json?
+  metadata      Json?
+  // Indexing scopes (optional — let us filter the timeline efficiently)
+  leagueId      String?
+  schoolId      String?
+  competitionId String?
+  matchId       String?
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([leagueId, createdAt])
+  @@index([schoolId, createdAt])
+  @@index([competitionId, createdAt])
+}
+
+// ===========================================================================
+// FEEDBACK — in-app "Get help / Send feedback" submissions (beta)
+// ===========================================================================
+
+model Feedback {
+  id          String   @id @default(cuid())
+  message     String
+  route       String? // page the user was on when they submitted
+  errorDigest String? // present when raised from an error boundary
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmail   String? // snapshot — survives user deletion
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([resolved, createdAt])
+}
+
+// ===========================================================================
+// PLAYER GROWTH LAYER — comments, goals
+// ---------------------------------------------------------------------------
+// Comments and goals exist on the User (not Roster/Team) so they follow the
+// player across seasons, schools, even leagues. Visibility lets us surface
+// public profile content separately from private coach feedback.
+// ===========================================================================
+
+enum PlayerCommentVisibility {
+  PRIVATE // Only the player and the author can see
+  PUBLIC // Visible on the player's public profile (any signed-in viewer)
+  RECRUITER // Visible only to identified college coaches / recruiters
+}
+
+enum PlayerCommentKind {
+  COACH // Authored by their team coach
+  AI // Auto-generated heuristic / LLM insight
+  RECRUITER // From a college coach or recruiter
+}
+
+model PlayerComment {
+  id         String                  @id @default(cuid())
+  // The user receiving the comment (the player)
+  playerId   String
+  player     User                    @relation("PlayerCommentReceived", fields: [playerId], references: [id], onDelete: Cascade)
+  // The user writing the comment. Nullable for AI-authored comments.
+  authorId   String?
+  author     User?                   @relation("PlayerCommentAuthored", fields: [authorId], references: [id], onDelete: SetNull)
+  // Optional anchor — comment about a specific match
+  matchId    String?
+  match      Match?                  @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  kind       PlayerCommentKind       @default(COACH)
+  visibility PlayerCommentVisibility @default(PRIVATE)
+  body       String
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  @@index([playerId, createdAt])
+  @@index([authorId])
+  @@index([matchId])
+}
+
+enum PlayerGoalKind {
+  WINS // Hit N total wins
+  WIN_RATE // Reach X% win rate over last N matches
+  ATTENDANCE_RATE // Hit X% attendance (no forfeits)
+  MATCHES_PLAYED // Play N matches
+  WIN_STREAK // Reach a win streak of N
+}
+
+model PlayerGoal {
+  id          String         @id @default(cuid())
+  playerId    String
+  player      User           @relation("PlayerGoalOwner", fields: [playerId], references: [id], onDelete: Cascade)
+  kind        PlayerGoalKind
+  // Target value the player is chasing (e.g. 10 wins, 80% rate)
+  targetValue Float
+  // Display label override (defaults to a kind-based label)
+  label       String?
+  // Optional season scope — null means all-time
+  seasonId    String?
+  season      Season?        @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  achievedAt  DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([playerId, achievedAt])
+  @@index([seasonId])
+}

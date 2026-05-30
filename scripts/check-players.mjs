@@ -1,0 +1,11 @@
+import { PrismaClient } from '@prisma/client';
+const p = new PrismaClient();
+const userCount = await p.user.count();
+const memCount = await p.rosterMembership.count();
+const teamCount = await p.team.count();
+const rosterCount = await p.roster.count();
+const usersWithRoster = await p.user.count({ where: { rosterMemberships: { some: {} } } });
+const usersWithSchool = await p.user.count({ where: { schoolMemberships: { some: {} } } });
+const coaches = await p.schoolMembership.count({ where: { role: { in: ['COACH', 'MANAGER'] } } });
+console.log(JSON.stringify({ userCount, teamCount, rosterCount, memCount, usersWithRoster, usersWithSchool, coaches }, null, 2));
+await p.$disconnect();

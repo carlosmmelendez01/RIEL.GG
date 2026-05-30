@@ -1,0 +1,231 @@
+// RIEL OS — initial schema sketch.
+// Models the league, school, team, roster, match, and tournament domain.
+// This is a starting point — relations and fields will iterate as features land.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --- Identity --------------------------------------------------------------
+
+enum UserRole {
+  LEAGUE_ADMIN
+  COACH
+  ASSISTANT_COACH
+  PLAYER
+  PARENT
+  STAFF
+}
+
+model User {
+  id           String   @id @default(cuid())
+  // Supabase auth.users.id — bridge to the auth schema.
+  authId       String   @unique
+  email        String   @unique
+  fullName     String
+  avatarUrl    String?
+  role         UserRole @default(COACH)
+  schoolId     String?
+  school       School?  @relation(fields: [schoolId], references: [id])
+  coachOfTeams Team[]   @relation("TeamCoach")
+  players      Player[] @relation("PlayerUser")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// --- Organization ----------------------------------------------------------
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  shortName String?
+  city      String?
+  state     String?  @default("IN")
+  logoUrl   String?
+  primaryColor   String?
+  secondaryColor String?
+  users     User[]
+  teams     Team[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Game catalog ----------------------------------------------------------
+
+model GameTitle {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  publisher   String?
+  // Format hint — "1v1", "5v5", "3v3" — used by matchmaking + roster validation.
+  format      String?
+  iconUrl     String?
+  active      Boolean  @default(true)
+  divisions   Division[]
+  teams       Team[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- Competition structure -------------------------------------------------
+
+model Season {
+  id          String       @id @default(cuid())
+  name        String
+  startsAt    DateTime
+  endsAt      DateTime
+  divisions   Division[]
+  tournaments Tournament[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Division {
+  id          String     @id @default(cuid())
+  name        String
+  seasonId    String
+  season      Season     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  gameTitleId String
+  gameTitle   GameTitle  @relation(fields: [gameTitleId], references: [id])
+  // "VARSITY" | "JV" | "UNIFIED" | "DEV" — kept as String for flexibility now,
+  // promote to enum once the league taxonomy stabilizes.
+  tier        String     @default("VARSITY")
+  teams       Team[]
+  matches     Match[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Tournament {
+  id          String   @id @default(cuid())
+  name        String
+  seasonId    String
+  season      Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  startsAt    DateTime
+  endsAt      DateTime
+  // "SINGLE_ELIM" | "DOUBLE_ELIM" | "ROUND_ROBIN" | "SWISS"
+  format      String   @default("SINGLE_ELIM")
+  matches     Match[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- Teams + roster --------------------------------------------------------
+
+model Team {
+  id          String     @id @default(cuid())
+  name        String
+  schoolId    String
+  school      School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  gameTitleId String
+  gameTitle   GameTitle  @relation(fields: [gameTitleId], references: [id])
+  divisionId  String?
+  division    Division?  @relation(fields: [divisionId], references: [id])
+  coachId     String?
+  coach       User?      @relation("TeamCoach", fields: [coachId], references: [id])
+  players     Player[]
+  homeMatches Match[]    @relation("HomeTeam")
+  awayMatches Match[]    @relation("AwayTeam")
+  wonMatches  Match[]    @relation("MatchWinner")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([schoolId])
+  @@index([gameTitleId])
+}
+
+model Player {
+  id            String   @id @default(cuid())
+  teamId        String
+  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  // Optional link to a User account — players may exist as roster entries
+  // before they sign up, especially for younger students.
+  userId        String?
+  user          User?    @relation("PlayerUser", fields: [userId], references: [id])
+  displayName   String
+  inGameName    String?
+  jerseyNumber  Int?
+  isStarter     Boolean  @default(true)
+  isEligible    Boolean  @default(true)
+  graduationYear Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([teamId])
+}
+
+// --- Matches ---------------------------------------------------------------
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  AWAITING_REPORT
+  REPORTED
+  CONFIRMED
+  DISPUTED
+  FORFEITED
+  CANCELED
+}
+
+model Match {
+  id           String       @id @default(cuid())
+  divisionId   String?
+  division     Division?    @relation(fields: [divisionId], references: [id])
+  tournamentId String?
+  tournament   Tournament?  @relation(fields: [tournamentId], references: [id])
+  // Bracket coordinates — null for round-robin / scheduled play.
+  round        Int?
+  bracketSlot  Int?
+  homeTeamId   String
+  homeTeam     Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId   String
+  awayTeam     Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeScore    Int?
+  awayScore    Int?
+  winnerTeamId String?
+  winnerTeam   Team?        @relation("MatchWinner", fields: [winnerTeamId], references: [id])
+  scheduledAt  DateTime
+  status       MatchStatus  @default(SCHEDULED)
+  reports      MatchReport[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([divisionId])
+}
+
+model MatchReport {
+  id          String   @id @default(cuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  reportedById String
+  homeScore   Int
+  awayScore   Int
+  // Storage paths in Supabase Storage — keep array-typed so coaches can drop
+  // multiple screenshots per game.
+  evidenceUrls String[]
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([matchId])
+}
+
+// --- Communication ---------------------------------------------------------
+
+model Announcement {
+  id        String   @id @default(cuid())
+  authorId  String
+  title     String
+  body      String
+  // "LEAGUE" | "DIVISION:<id>" | "TEAM:<id>" — simple targeting for v1.
+  audience  String   @default("LEAGUE")
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

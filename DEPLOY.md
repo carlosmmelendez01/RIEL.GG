@@ -12,8 +12,10 @@ trip up first deploys.
    default — `npm run build` already runs `prisma generate && next build`, and
    `postinstall` regenerates the Prisma client on every build (so Vercel's
    dependency cache can never serve a stale client).
-4. **Don't deploy yet** — add the environment variables first (next step),
-   otherwise the first build will fail on env validation.
+4. **Add the environment variables first** (next step) before deploying. The
+   build will technically succeed without them (env has safe defaults), but
+   the app won't connect to Supabase or sign anyone in until the real values
+   are set — so set them up front for a working first deploy.
 
 ## 2. Environment variables
 

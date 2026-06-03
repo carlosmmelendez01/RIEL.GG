@@ -42,8 +42,8 @@ const SECTIONS: NavSection[] = [
     items: [
       { label: "Feed", href: "/me", icon: Home },
       { label: "Explore", href: "/explore", icon: Compass, soon: true },
-      { label: "Notifications", href: "/notifications", icon: Bell, badge: "3", soon: true },
-      { label: "Messages", href: "/messages", icon: MessageCircle, badge: "2", soon: true },
+      { label: "Notifications", href: "/notifications", icon: Bell, soon: true },
+      { label: "Messages", href: "/messages", icon: MessageCircle, soon: true },
       { label: "Bookmarks", href: "/bookmarks", icon: Bookmark, soon: true },
     ],
   },

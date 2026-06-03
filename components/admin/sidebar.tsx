@@ -50,14 +50,14 @@ const SECTIONS: NavSection[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-      { label: "Board", href: "/admin/board", icon: BarChart3, badge: "New", badgeTone: "gold" },
+      { label: "Board", href: "/admin/board", icon: BarChart3 },
     ],
   },
   {
     label: "Season",
     items: [
       { label: "Seasons", href: "/admin/seasons", icon: CalendarRange, soon: true },
-      { label: "Competitions", href: "/admin/competitions", icon: Trophy, badge: "5", badgeTone: "crimson" },
+      { label: "Competitions", href: "/admin/competitions", icon: Trophy },
       { label: "Game catalog", href: "/admin/games", icon: Gamepad2, soon: true },
       { label: "Tournaments", href: "/admin/tournaments", icon: Network, soon: true },
     ],
@@ -65,7 +65,7 @@ const SECTIONS: NavSection[] = [
   {
     label: "Participants",
     items: [
-      { label: "Schools", href: "/admin/schools", icon: Building2, badge: "4", badgeTone: "gold" },
+      { label: "Schools", href: "/admin/schools", icon: Building2 },
       { label: "Teams", href: "/admin/teams", icon: Users, soon: true },
       { label: "Coaches", href: "/admin/coaches", icon: UserCog, soon: true },
     ],
@@ -73,9 +73,9 @@ const SECTIONS: NavSection[] = [
   {
     label: "Operations",
     items: [
-      { label: "Scheduler", href: "/admin/scheduler", icon: Wand2, badge: "AI", badgeTone: "gold" },
-      { label: "All matches", href: "/admin/matches", icon: Calendar, badge: "10", badgeTone: "crimson" },
-      { label: "Disputes", href: "/admin/disputes", icon: CircleAlert, soon: true, badge: "1", badgeTone: "crimson" },
+      { label: "Scheduler", href: "/admin/scheduler", icon: Wand2 },
+      { label: "All matches", href: "/admin/matches", icon: Calendar },
+      { label: "Disputes", href: "/admin/disputes", icon: CircleAlert, soon: true },
       { label: "Reports", href: "/admin/reports", icon: FileBarChart, soon: true },
       { label: "Audit log", href: "/admin/audit", icon: ScrollText, soon: true },
     ],

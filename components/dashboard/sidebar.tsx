@@ -41,7 +41,7 @@ const SECTIONS: NavSection[] = [
     label: "Program",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: Home },
-      { label: "Schedule", href: "/dashboard/matches", icon: Calendar, badge: "3" },
+      { label: "Schedule", href: "/dashboard/matches", icon: Calendar },
       { label: "School", href: "/dashboard/school", icon: Building2 },
       { label: "Teams", href: "/dashboard/teams", icon: Users },
       { label: "Players", href: "/dashboard/players", icon: UserCircle2, soon: true },

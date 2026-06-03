@@ -9,13 +9,11 @@
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Filter, Plus } from "lucide-react";
 
 import { Topbar } from "@/components/dashboard/topbar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { MatchStateMark, matchStatusToState } from "@/components/brand/logo";
-import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { loadCoachDashboard } from "@/lib/coach/dashboard";
 import { cn } from "@/lib/utils";
@@ -91,21 +89,6 @@ export default async function MatchesPage() {
             <span className="text-foreground">{data.upcomingMatches.length}</span> upcoming ·{" "}
             <span className="text-foreground">{data.recentResults.length}</span> recent results
           </p>
-          <div className="flex gap-2">
-            <button className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              <Filter className="mr-1.5 h-3 w-3" />
-              Filter
-            </button>
-            <button
-              className={cn(
-                buttonVariants({ size: "sm" }),
-                "bg-[color:var(--brand-crimson)] text-white hover:bg-[color:var(--brand-crimson-deep)]",
-              )}
-            >
-              <Plus className="mr-1.5 h-3 w-3" />
-              Schedule match
-            </button>
-          </div>
         </div>
 
         {allRows.length === 0 ? (

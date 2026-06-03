@@ -1,8 +1,7 @@
 "use client";
 
-import { Bell, Search, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { ModeSwitcher } from "@/components/auth/mode-switcher";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useViewer } from "@/components/auth/viewer-provider";
@@ -27,20 +26,7 @@ export function AdminTopbar({ title, eyebrow }: { title: string; eyebrow?: strin
         </div>
       </div>
 
-      <div className="hidden items-center gap-2 rounded-md border border-border/60 bg-card/60 px-3 py-1.5 text-sm text-muted-foreground md:flex md:w-72">
-        <Search className="h-4 w-4" />
-        <span className="flex-1">Search schools, competitions, matches…</span>
-        <kbd className="rounded border border-border/80 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-          ⌘K
-        </kbd>
-      </div>
-
       <ThemeToggle variant="subtle" />
-
-      <Button variant="ghost" size="icon-sm" aria-label="Notifications" className="relative">
-        <Bell className="h-4 w-4" />
-        <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[color:var(--brand-crimson)]" />
-      </Button>
 
       {viewer ? <ModeSwitcher current="admin" viewer={viewer} /> : null}
     </header>

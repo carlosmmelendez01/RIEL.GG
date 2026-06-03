@@ -151,7 +151,7 @@ function CompetitionCard({ comp }: { comp: LeagueCompetition }) {
   const isLive = comp.state === "ACTIVE" && comp.status === "IN_PROGRESS";
 
   return (
-    <Link href="/admin/scheduler" className="block">
+    <Link href={`/admin/competitions/${comp.id}`} className="block">
       <Card
         className={cn(
           "group hover-edge-crimson border-border/60 bg-card/80 transition-colors hover:bg-card",
@@ -219,7 +219,7 @@ function CompetitionCard({ comp }: { comp: LeagueCompetition }) {
           )}
 
           <div className="flex items-center justify-between border-t border-border/60 pt-3 text-[11px]">
-            <span className="text-muted-foreground">Open scheduler</span>
+            <span className="text-muted-foreground">View bracket &amp; details</span>
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
           </div>
         </CardContent>

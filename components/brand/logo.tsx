@@ -18,9 +18,8 @@
 
 import { cn } from "@/lib/utils";
 
-// Aspect ratios pulled from the SVG viewBoxes
+// Aspect ratio of the match-state icon SVGs (pulled from their viewBox)
 const ICON_ASPECT = 284.248 / 361.111; // ≈ 0.787 (taller than wide)
-const WORDMARK_ASPECT = 1000 / 361.111; // ≈ 2.769
 
 export type MatchStateName = "default" | "completed" | "in-progress" | "standby" | "verifying";
 
@@ -109,9 +108,10 @@ export function RielIcon({
 }
 
 /**
- * Full RIEL.GG logo lockup — the gradient-R icon + the angular-cut wordmark.
- * Use in headers, the login page, and any marketing surface. Pass
- * `icon={false}` for a wordmark-only treatment in tight spots.
+ * Full RIEL.GG logo lockup — the gradient-R icon + the "RIEL.GG" wordmark
+ * rendered as live text (no raster wordmark). "RIEL" takes the foreground
+ * color (so it flips with the theme); ".GG" carries the brand gradient that
+ * mirrors the R mark. Pass `icon={false}` for a wordmark-only treatment.
  */
 export function RielLockup({
   className,
@@ -119,24 +119,23 @@ export function RielLockup({
   icon = true,
 }: {
   className?: string;
-  /** Pixel height of the wordmark; width is computed to preserve aspect ratio. */
+  /** Nominal lockup height in px; drives icon size + wordmark font size. */
   height?: number;
   /** Show the gradient-R icon before the wordmark. Defaults on. */
   icon?: boolean;
 }) {
-  const width = Math.round(height * WORDMARK_ASPECT);
+  const fontSize = Math.round(height * 0.74);
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-2", className)}>
-      {icon ? <RielIcon size={Math.round(height * 1.15)} /> : null}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/brand/wordmark.png"
-        alt="RIEL.GG"
-        width={width}
-        height={height}
-        className="theme-flip-on-light shrink-0 select-none"
-        draggable={false}
-      />
+      {icon ? <RielIcon size={Math.round(height * 1.08)} /> : null}
+      <span
+        aria-label="RIEL.GG"
+        style={{ fontSize, lineHeight: 1 }}
+        className="select-none font-extrabold tracking-[-0.02em]"
+      >
+        <span className="text-foreground">RIEL</span>
+        <span className="text-gradient-logo">.GG</span>
+      </span>
     </span>
   );
 }

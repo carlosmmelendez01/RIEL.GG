@@ -77,6 +77,18 @@
   --brand-ink: oklch(0.0986 0 0);                  /* #0A0A0A — the brand black */
   --brand-onyx: oklch(0.16 0 0);
 
+  /* --- New logo palette (from the gradient R mark) --- */
+  --brand-red: #c8102e;                            /* logo red */
+  --brand-magenta: #d12fff;                        /* logo magenta */
+  --brand-violet: #6a00ff;                         /* logo violet */
+  /* Left-to-right gradient that mirrors the R mark. */
+  --brand-gradient: linear-gradient(
+    100deg,
+    var(--brand-red) 0%,
+    var(--brand-magenta) 50%,
+    var(--brand-violet) 100%
+  );
+
   /* --- LIGHT THEME SURFACES (default) --- */
   --background: oklch(0.99 0 0);                   /* near-white */
   --foreground: oklch(0.20 0.01 260);              /* near-black, slight cool */
@@ -184,20 +196,6 @@
     color-scheme: dark;
   }
 
-  /*
-   * Theme-aware wordmark filter.
-   *
-   * The packaged wordmark PNG/SVG has WHITE "RIEL" + RED ".GG" (designed for
-   * dark backgrounds). In light mode we apply an invert + 180° hue rotate:
-   * white → black, red survives a round trip through cyan and back to red.
-   * No second asset needed.
-   */
-  .theme-flip-on-light {
-    transition: filter 200ms ease;
-  }
-  :where(:not(.dark)) .theme-flip-on-light {
-    filter: invert(1) hue-rotate(180deg);
-  }
   /* Slightly heavier body weight reads better on dark surfaces */
   body, p, li, span, td, th, dd, dt, label {
     font-weight: 450;
@@ -210,6 +208,14 @@
 @layer utilities {
   .text-gradient-brand {
     background: linear-gradient(120deg, var(--brand-crimson) 0%, var(--brand-gold) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Logo wordmark gradient — mirrors the gradient R mark. */
+  .text-gradient-logo {
+    background: var(--brand-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

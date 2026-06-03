@@ -84,20 +84,50 @@ export function MatchStateMark({
 }
 
 /**
- * Full RIEL.GG wordmark — the angular-cut logotype. Use in headers, the
- * login page, and any marketing surface.
+ * The standalone gradient-R brand icon (square). Use as the app/favicon mark
+ * and beside the wordmark to form the full logo lockup. The gradient reads on
+ * both light and dark backgrounds, so it is never theme-flipped.
+ */
+export function RielIcon({
+  size = 28,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src="/brand/icon-mark.png"
+      alt="RIEL.GG"
+      width={size}
+      height={size}
+      className={cn("shrink-0 select-none", className)}
+      draggable={false}
+    />
+  );
+}
+
+/**
+ * Full RIEL.GG logo lockup — the gradient-R icon + the angular-cut wordmark.
+ * Use in headers, the login page, and any marketing surface. Pass
+ * `icon={false}` for a wordmark-only treatment in tight spots.
  */
 export function RielLockup({
   className,
   height = 30,
+  icon = true,
 }: {
   className?: string;
   /** Pixel height of the wordmark; width is computed to preserve aspect ratio. */
   height?: number;
+  /** Show the gradient-R icon before the wordmark. Defaults on. */
+  icon?: boolean;
 }) {
   const width = Math.round(height * WORDMARK_ASPECT);
   return (
-    <span className={cn("inline-flex shrink-0 items-center", className)}>
+    <span className={cn("inline-flex shrink-0 items-center gap-2", className)}>
+      {icon ? <RielIcon size={Math.round(height * 1.15)} /> : null}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/brand/wordmark.png"

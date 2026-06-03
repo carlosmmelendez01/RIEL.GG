@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { RielLockup } from "@/components/brand/logo";
+import { RielIcon } from "@/components/brand/logo";
 import { BetaBadge } from "@/components/brand/beta-badge";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";

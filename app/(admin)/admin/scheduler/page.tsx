@@ -102,16 +102,16 @@ export default async function AISchedulerPage() {
                 body: "Every approved roster plays every other once. Pairings produced via the circle method, each round one calendar day apart.",
               },
               {
-                title: "Live now: per-stage pacing",
-                body: "Match start times offset by the stage's `matchIntervalMinutes`. Bestof / check-in window inherited from stage config.",
+                title: "Live now: single-elim playoffs",
+                body: "Once the regular season finishes, the Playoffs button seeds a bracket from standings (top seeds kept apart), then advances winners one round at a time to a champion.",
               },
               {
                 title: "Coming later: availability",
                 body: "Per-school day-of-week + time-of-day preferences, blackout dates, school holidays.",
               },
               {
-                title: "Coming later: balancing + brackets",
-                body: "Fair-play distribution of tough matchups + automatic bracket seeding after standings settle.",
+                title: "Coming later: smarter seeding + double-elim",
+                body: "Fair-play distribution of tough matchups, byes for non-power-of-two fields, and double-elimination brackets.",
               },
             ].map((f) => (
               <div
@@ -176,6 +176,7 @@ export default async function AISchedulerPage() {
                       competitionId={c.id}
                       hasMatches={c.matchesTotal > 0}
                       rosterCount={c.registeredTeams}
+                      hasPlayoffStage={c.hasPlayoffStage}
                       compact
                     />
                   </li>

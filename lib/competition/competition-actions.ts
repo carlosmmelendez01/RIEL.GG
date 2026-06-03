@@ -525,6 +525,353 @@ export async function runScheduler(input: { competitionId: string }): Promise<Ru
   return { ok: true, competitionId, ...result };
 }
 
+// --- generatePlayoffRound ----------------------------------------------
+
+const PlayoffInput = z.object({
+  competitionId: z.string().min(1),
+});
+
+export type GeneratePlayoffResult =
+  | {
+      ok: true;
+      competitionId: string;
+      stageId: string;
+      roundName: string;
+      matchesCreated: number;
+      seeded: boolean; // true when this was the first (seeding) round
+    }
+  | { ok: false; error: string; code?: "CHAMPION_DECIDED" | "ROUND_IN_PROGRESS" };
+
+/**
+ * Generate the next single-elimination playoff round for a competition.
+ *
+ * The model is "advance on demand" — the admin generates one round at a time:
+ *  - First call: seeds Round 1 from the live regular-season standings. Bracket
+ *    size is the largest power of two ≤ approved-roster count (e.g. 5 teams →
+ *    top 4 seeded; the 5th misses the cut). Seeds are arranged so the top two
+ *    can only meet in the final (standard bracket fold).
+ *  - Later calls: pair the winners of the most recent completed round.
+ *
+ * Guards:
+ *  - Requires a SINGLE_ELIM playoff stage (double-elim is a later sprint).
+ *  - Refuses if the current round still has unfinished matches.
+ *  - Refuses once a champion is decided (only one team left).
+ *
+ * This is what lets a season actually finish: regular season → playoffs →
+ * champion.
+ */
+export async function generatePlayoffRound(
+  input: { competitionId: string },
+): Promise<GeneratePlayoffResult> {
+  const parsed = PlayoffInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const { competitionId } = parsed.data;
+
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "You need to be signed in." };
+
+  const ctx = await requireLeagueAdmin(user.id);
+  if (!ctx) return { ok: false, error: "Only league admins can run playoffs." };
+
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    select: {
+      id: true,
+      season: { select: { leagueId: true } },
+      stages: {
+        orderBy: { order: "asc" },
+        select: {
+          id: true,
+          name: true,
+          kind: true,
+          schedulingMethod: true,
+          startsAt: true,
+          bestOf: true,
+          matchIntervalMinutes: true,
+        },
+      },
+    },
+  });
+  if (!competition) return { ok: false, error: "Competition not found." };
+  if (competition.season.leagueId !== ctx.league.id) {
+    return { ok: false, error: "This competition isn't in your league." };
+  }
+
+  const playoffStage = competition.stages.find(
+    (s) => s.kind === "SINGLE_ELIM" || s.schedulingMethod === "SINGLE_ELIM",
+  );
+  if (!playoffStage) {
+    if (competition.stages.some((s) => s.kind === "DOUBLE_ELIM")) {
+      return {
+        ok: false,
+        error: "Double-elimination brackets aren't supported yet — single-elim only for now.",
+      };
+    }
+    return {
+      ok: false,
+      error: "This competition has no single-elimination playoff stage to generate.",
+    };
+  }
+
+  // Existing playoff matches, grouped by bracketRound.
+  const existing = await prisma.match.findMany({
+    where: { stageId: playoffStage.id },
+    orderBy: [{ bracketRound: "asc" }, { bracketSlot: "asc" }],
+    select: {
+      id: true,
+      status: true,
+      bracketRound: true,
+      bracketSlot: true,
+      winnerRosterId: true,
+    },
+  });
+
+  const intervalMs = playoffStage.matchIntervalMinutes * 60 * 1000;
+
+  // Decide what to build: round 1 (seed) or the next round (advance winners).
+  let pairings: Array<[string, string]>;
+  let bracketRound: number;
+  let seeded = false;
+
+  if (existing.length === 0) {
+    // --- Seed round 1 from standings -----------------------------------
+    // Guard: seeds come from regular-season standings, so the regular season
+    // must be finished or the bracket seeding would be based on partial
+    // records.
+    const regularStage = competition.stages.find(
+      (s) =>
+        s.schedulingMethod === "ROUND_ROBIN" ||
+        s.kind === "LEAGUE_PLAY" ||
+        s.kind === "ROUND_ROBIN",
+    );
+    if (regularStage) {
+      const unfinishedRegular = await prisma.match.count({
+        where: {
+          stageId: regularStage.id,
+          status: { notIn: ["FINISHED", "FORFEITED", "CANCELED"] },
+        },
+      });
+      const totalRegular = await prisma.match.count({
+        where: { stageId: regularStage.id },
+      });
+      if (totalRegular === 0) {
+        return {
+          ok: false,
+          error: "Generate and play the regular-season schedule before seeding playoffs.",
+        };
+      }
+      if (unfinishedRegular > 0) {
+        return {
+          ok: false,
+          error: `Finish the regular season first — ${unfinishedRegular} match${unfinishedRegular === 1 ? "" : "es"} still unplayed.`,
+          code: "ROUND_IN_PROGRESS",
+        };
+      }
+    }
+
+    const seeds = await computeCompetitionSeeding(competition.id);
+    if (seeds.length < 2) {
+      return {
+        ok: false,
+        error: `Need at least 2 approved teams with results to seed a bracket — found ${seeds.length}.`,
+      };
+    }
+    const bracketSize = largestPowerOfTwoAtMost(seeds.length);
+    const topSeeds = seeds.slice(0, bracketSize); // [rosterId in seed order 1..N]
+    const order = seedOrder(bracketSize); // seed numbers in bracket position order
+    pairings = [];
+    for (let i = 0; i < order.length; i += 2) {
+      const home = topSeeds[order[i] - 1];
+      const away = topSeeds[order[i + 1] - 1];
+      pairings.push([home, away]);
+    }
+    bracketRound = 1;
+    seeded = true;
+  } else {
+    // --- Advance winners of the latest round ---------------------------
+    const maxRound = Math.max(...existing.map((m) => m.bracketRound ?? 1));
+    const latest = existing
+      .filter((m) => (m.bracketRound ?? 1) === maxRound)
+      .sort((a, b) => (a.bracketSlot ?? 0) - (b.bracketSlot ?? 0));
+
+    const unfinished = latest.filter(
+      (m) => m.status !== "FINISHED" && m.status !== "FORFEITED",
+    );
+    if (unfinished.length > 0) {
+      return {
+        ok: false,
+        error: `Round ${maxRound} still has ${unfinished.length} unfinished match${unfinished.length === 1 ? "" : "es"} — finish them before advancing.`,
+        code: "ROUND_IN_PROGRESS",
+      };
+    }
+    if (latest.length <= 1) {
+      return {
+        ok: false,
+        error: "The bracket is complete — a champion has already been decided.",
+        code: "CHAMPION_DECIDED",
+      };
+    }
+    const winners = latest.map((m) => m.winnerRosterId);
+    if (winners.some((w) => !w)) {
+      return {
+        ok: false,
+        error: "A finished playoff match is missing a winner — resolve it via admin override first.",
+      };
+    }
+    // Pair adjacent winners: slot 0 vs slot 1, slot 2 vs slot 3, …
+    pairings = [];
+    for (let i = 0; i < winners.length; i += 2) {
+      pairings.push([winners[i] as string, winners[i + 1] as string]);
+    }
+    bracketRound = maxRound + 1;
+  }
+
+  const name = roundName(pairings.length);
+  // Playoff rounds are spaced a day apart, starting after the stage start.
+  const roundDate = new Date(
+    playoffStage.startsAt.getTime() + (bracketRound - 1) * 24 * 60 * 60 * 1000,
+  );
+
+  const result = await prisma.$transaction(async (tx) => {
+    const round = await tx.round.create({
+      data: {
+        stageId: playoffStage.id,
+        name,
+        order: bracketRound - 1,
+        startsAt: roundDate,
+        endsAt: new Date(roundDate.getTime() + 24 * 60 * 60 * 1000),
+      },
+      select: { id: true },
+    });
+
+    let matchesCreated = 0;
+    for (let slot = 0; slot < pairings.length; slot++) {
+      const [homeId, awayId] = pairings[slot];
+      await tx.match.create({
+        data: {
+          stageId: playoffStage.id,
+          roundId: round.id,
+          homeRosterId: homeId,
+          awayRosterId: awayId,
+          bracketRound,
+          bracketSlot: slot,
+          scheduledAt: new Date(roundDate.getTime() + slot * intervalMs),
+          status: "SCHEDULED",
+          bestOf: playoffStage.bestOf,
+        },
+      });
+      matchesCreated++;
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: user.id,
+        action: "COMPETITION.GENERATE_PLAYOFF_ROUND",
+        entityType: "Stage",
+        entityId: playoffStage.id,
+        after: { bracketRound, roundName: name, matchesCreated, seeded },
+        leagueId: ctx.league.id,
+        competitionId: competition.id,
+      },
+    });
+
+    return matchesCreated;
+  });
+
+  revalidateCompetitionSurfaces(competitionId);
+  return {
+    ok: true,
+    competitionId,
+    stageId: playoffStage.id,
+    roundName: name,
+    matchesCreated: result,
+    seeded,
+  };
+}
+
+/**
+ * Rank a competition's approved rosters by regular-season record (wins desc,
+ * then fewer losses). Mirrors the live standings logic used on the coach
+ * dashboard. Returns roster IDs best-first.
+ */
+async function computeCompetitionSeeding(competitionId: string): Promise<string[]> {
+  const rosters = await prisma.roster.findMany({
+    where: { competitionId, registrationStatus: "APPROVED" },
+    select: {
+      id: true,
+      createdAt: true,
+      homeMatches: {
+        where: { status: { in: ["FINISHED", "FORFEITED"] } },
+        select: { winnerRosterId: true },
+      },
+      awayMatches: {
+        where: { status: { in: ["FINISHED", "FORFEITED"] } },
+        select: { winnerRosterId: true },
+      },
+    },
+  });
+
+  return rosters
+    .map((r) => {
+      const all = [...r.homeMatches, ...r.awayMatches];
+      const wins = all.filter((m) => m.winnerRosterId === r.id).length;
+      const losses = all.length - wins;
+      return { id: r.id, wins, losses, createdAt: r.createdAt };
+    })
+    .sort(
+      (a, b) =>
+        b.wins - a.wins ||
+        a.losses - b.losses ||
+        a.createdAt.getTime() - b.createdAt.getTime(),
+    )
+    .map((r) => r.id);
+}
+
+/** Largest power of two ≤ n (n ≥ 1). */
+function largestPowerOfTwoAtMost(n: number): number {
+  let p = 1;
+  while (p * 2 <= n) p *= 2;
+  return p;
+}
+
+/**
+ * Standard single-elim seed ordering for `n` (a power of two). Returns the
+ * seed numbers (1-based) in bracket position order, so consecutive pairs are
+ * matchups and the top two seeds land in opposite halves.
+ *   n=4 → [1,4,2,3]   n=8 → [1,8,4,5,2,7,3,6]
+ */
+function seedOrder(n: number): number[] {
+  let order = [1, 2];
+  while (order.length < n) {
+    const sum = order.length * 2 + 1;
+    const next: number[] = [];
+    for (const s of order) {
+      next.push(s);
+      next.push(sum - s);
+    }
+    order = next;
+  }
+  return order;
+}
+
+/** Human round label from how many matches it contains. */
+function roundName(matchCount: number): string {
+  switch (matchCount) {
+    case 1:
+      return "Finals";
+    case 2:
+      return "Semifinals";
+    case 4:
+      return "Quarterfinals";
+    case 8:
+      return "Round of 16";
+    case 16:
+      return "Round of 32";
+    default:
+      return `Playoff Round (${matchCount} matches)`;
+  }
+}
+
 // --- Round-robin builder -----------------------------------------------
 
 /**

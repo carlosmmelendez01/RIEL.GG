@@ -63,6 +63,8 @@ export type LeagueCompetition = {
   expectedTeams: number;
   matchesPlayed: number;
   matchesTotal: number;
+  /** True when the competition has a single-elim playoff stage to run. */
+  hasPlayoffStage: boolean;
 };
 
 export type LeagueDispute = {
@@ -189,6 +191,8 @@ export async function loadLeagueAdminDashboard(
       },
       stages: {
         select: {
+          kind: true,
+          schedulingMethod: true,
           _count: { select: { matches: true } },
           matches: {
             where: { status: { in: ["FINISHED", "FORFEITED"] } },
@@ -203,6 +207,9 @@ export async function loadLeagueAdminDashboard(
     const registeredTeams = c.rosters.length;
     const matchesTotal = c.stages.reduce((s, st) => s + st._count.matches, 0);
     const matchesPlayed = c.stages.reduce((s, st) => s + st.matches.length, 0);
+    const hasPlayoffStage = c.stages.some(
+      (st) => st.kind === "SINGLE_ELIM" || st.schedulingMethod === "SINGLE_ELIM",
+    );
     // Expected teams — we don't track this on the schema yet; use a sensible
     // default of "registered + slack" so the progress bar still reads
     return {
@@ -216,6 +223,7 @@ export async function loadLeagueAdminDashboard(
       expectedTeams: Math.max(registeredTeams + 4, 12),
       matchesPlayed,
       matchesTotal,
+      hasPlayoffStage,
     };
   });
 

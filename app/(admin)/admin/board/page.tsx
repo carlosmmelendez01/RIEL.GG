@@ -650,7 +650,7 @@ function RecentForfeitsFeed({ items }: { items: ForfeitFeedItem[] }) {
               {item.reason ? (
                 <>
                   <span className="mx-1.5 text-muted-foreground/50">·</span>
-                  <span className="italic">"{item.reason}"</span>
+                  <span className="italic">&quot;{item.reason}&quot;</span>
                 </>
               ) : null}
             </p>

@@ -463,7 +463,7 @@ function BasicsStep({
         <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Step 1</p>
         <CardTitle className="text-xl">What are we creating?</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Pick the game, tier, and season. We'll auto-generate a name unless you set a custom one.
+          Pick the game, tier, and season. We&apos;ll auto-generate a name unless you set a custom one.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -904,7 +904,7 @@ function FormatStep({
             >
               <p className="text-[13px] font-semibold">Auto-finish after delay</p>
               <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                Single confirmation finalizes after a delay. Handles "rage quit" no-confirms.
+                Single confirmation finalizes after a delay. Handles &quot;rage quit&quot; no-confirms.
               </p>
             </button>
           </div>
@@ -1051,8 +1051,8 @@ function ReviewStep({ data }: { data: Record<string, string | number | boolean> 
         <CardContent className="flex items-start gap-3 p-4">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="text-xs text-muted-foreground">
-            "Save as draft" stores everything but keeps the competition hidden from coaches. "Activate" publishes
-            it and opens registration immediately.
+            &quot;Save as draft&quot; stores everything but keeps the competition hidden from coaches.
+            &quot;Activate&quot; publishes it and opens registration immediately.
           </div>
         </CardContent>
       </Card>

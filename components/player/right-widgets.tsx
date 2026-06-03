@@ -89,7 +89,13 @@ function WidgetCard({
 
 // --- WIDGET 1: Next Match (real) --------------------------------------
 
-export function NextMatchWidget({ match }: { match: PlayerMatchRow | null }) {
+export function NextMatchWidget({
+  match,
+  nowMs,
+}: {
+  match: PlayerMatchRow | null;
+  nowMs: number;
+}) {
   if (!match) {
     return (
       <WidgetCard eyebrow="Next match" title="Nothing scheduled" icon={CalendarDays}>
@@ -111,7 +117,7 @@ export function NextMatchWidget({ match }: { match: PlayerMatchRow | null }) {
   });
   const daysAway = Math.max(
     0,
-    Math.ceil((match.scheduledAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+    Math.ceil((match.scheduledAt.getTime() - nowMs) / (24 * 60 * 60 * 1000)),
   );
 
   return (

@@ -191,7 +191,7 @@ export function AdminSidebar() {
             Admin Mode
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            You're managing the entire league. Switch back via the user menu.
+            You&apos;re managing the entire league. Switch back via the user menu.
           </p>
         </div>
       </div>

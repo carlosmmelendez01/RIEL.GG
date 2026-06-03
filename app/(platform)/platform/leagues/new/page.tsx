@@ -630,7 +630,7 @@ function OwnerStep(props: {
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Step 4</p>
         <CardTitle className="text-xl">Invite the league owner</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Who will run this league day-to-day? They'll get full ownership. You can add more admins later.
+          Who will run this league day-to-day? They&apos;ll get full ownership. You can add more admins later.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -787,7 +787,7 @@ function ReviewStep({ data }: { data: Record<string, unknown> }) {
         <CardContent className="flex items-start gap-3 p-4">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--brand-crimson)]" />
           <div>
-            <p className="text-[13px] font-semibold">When you click "Provision league":</p>
+            <p className="text-[13px] font-semibold">When you click &quot;Provision league&quot;:</p>
             <ul className="mt-1 space-y-0.5 text-[12px] text-muted-foreground">
               <li>• League workspace at <span className="font-mono">riel.gg/{data.slug as string}</span> is created</li>
               <li>• {games.length} game competitions are pre-configured (in Draft state)</li>

@@ -383,7 +383,7 @@ function ConfirmDisputeCard({
           </p>
           {report.notes ? (
             <p className="mt-3 max-w-md whitespace-pre-line border-t border-border/60 pt-3 text-left text-[12px] text-muted-foreground">
-              <span className="font-semibold text-foreground">Opponent's note:</span>{" "}
+              <span className="font-semibold text-foreground">Opponent&apos;s note:</span>{" "}
               {report.notes}
             </p>
           ) : null}
@@ -394,7 +394,7 @@ function ConfirmDisputeCard({
 
         {!canAct ? (
           <p className="text-[12px] text-muted-foreground">
-            Only the team's coach, captain, or manager can confirm or dispute.
+            Only the team&apos;s coach, captain, or manager can confirm or dispute.
           </p>
         ) : mode === "choose" ? (
           <div className="grid gap-2 sm:grid-cols-2">
@@ -421,7 +421,7 @@ function ConfirmDisputeCard({
           <div className="space-y-3 rounded-lg border border-[color:var(--brand-crimson)]/30 bg-[color:var(--brand-crimson)]/5 p-3">
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--brand-crimson)]">
-                What's wrong? <span className="text-[color:var(--brand-crimson)]">*</span>
+                What&apos;s wrong? <span className="text-[color:var(--brand-crimson)]">*</span>
               </label>
               <textarea
                 value={reason}

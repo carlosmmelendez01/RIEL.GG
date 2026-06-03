@@ -86,6 +86,7 @@ export type PlayerCommentRow = {
 };
 
 export type PlayerProfile = {
+  loadedAt: Date;
   user: {
     id: string;
     fullName: string;
@@ -351,6 +352,7 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
   const schoolShortName = sm?.school.shortName ?? null;
 
   return {
+    loadedAt: now,
     user: {
       id: user.id,
       fullName: user.fullName,

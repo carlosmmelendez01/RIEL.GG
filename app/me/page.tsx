@@ -42,6 +42,7 @@ export default async function PlayerHomePage() {
 
   const profile = await loadPlayerProfile(user.id);
   if (!profile) redirect("/login");
+  const profileNowMs = profile.loadedAt.getTime();
 
   if (profile.teams.length === 0) {
     return <NoTeamsState fullName={profile.user.fullName} />;
@@ -69,7 +70,7 @@ export default async function PlayerHomePage() {
         daysAgo: lastWin.finishedAt
           ? Math.max(
               0,
-              Math.floor((Date.now() - lastWin.finishedAt.getTime()) / (24 * 60 * 60 * 1000)),
+              Math.floor((profileNowMs - lastWin.finishedAt.getTime()) / (24 * 60 * 60 * 1000)),
             )
           : 0,
       }
@@ -80,7 +81,7 @@ export default async function PlayerHomePage() {
     ? {
         authorName: firstComment.authorName,
         body: firstComment.body,
-        postedAt: relativeTimeAgo(firstComment.createdAt),
+        postedAt: relativeTimeAgo(firstComment.createdAt, profileNowMs),
       }
     : null;
 
@@ -167,7 +168,7 @@ export default async function PlayerHomePage() {
           {/* Right widgets — all driven by real Prisma data scoped to the
               signed-in player. Each viewer sees a different sidebar. */}
           <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
-            <NextMatchWidget match={profile.upcoming[0] ?? null} />
+            <NextMatchWidget match={profile.upcoming[0] ?? null} nowMs={profileNowMs} />
             <SeasonGoalWidget goal={firstGoal} />
             {socialContext.teamProps.voterInitials.length > 0 ? (
               <TeamPropsWidget
@@ -241,8 +242,8 @@ function NoTeamsState({ fullName }: { fullName: string }) {
 
 // --- Helpers ----------------------------------------------------------
 
-function relativeTimeAgo(d: Date): string {
-  const ms = Date.now() - d.getTime();
+function relativeTimeAgo(d: Date, nowMs: number): string {
+  const ms = nowMs - d.getTime();
   const sec = Math.floor(ms / 1000);
   if (sec < 60) return `${sec}s`;
   const min = Math.floor(sec / 60);

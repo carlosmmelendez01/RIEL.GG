@@ -52,7 +52,6 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   // Console fallback — keeps every flow working without RESEND_API_KEY.
   if (!client) {
     const recipients = Array.isArray(input.to) ? input.to.join(", ") : input.to;
-    // eslint-disable-next-line no-console
     console.log(
       `[email] (console fallback — RESEND_API_KEY missing) to=${recipients} subject=${input.subject}`,
     );
@@ -72,13 +71,11 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     if (res.error) {
       // Resend returns errors in the response rather than throwing, so we
       // funnel them through the same path as exceptions.
-      // eslint-disable-next-line no-console
       console.warn(`[email] resend error: ${res.error.message}`);
       return { ok: false, error: res.error.message };
     }
     return { ok: true, id: res.data?.id ?? "unknown", provider: "resend" };
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.warn(`[email] send threw: ${err instanceof Error ? err.message : String(err)}`);
     return {
       ok: false,

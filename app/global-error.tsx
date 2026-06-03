@@ -10,6 +10,7 @@
  */
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function GlobalError({
   error,
@@ -20,7 +21,6 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // eslint-disable-next-line no-console
       console.error("[global-error]", error.message, { digest: error.digest });
     }
   }, [error]);
@@ -95,7 +95,7 @@ export default function GlobalError({
             >
               Try again
             </button>
-            <a
+            <Link
               href="/"
               style={{
                 background: "transparent",
@@ -109,7 +109,7 @@ export default function GlobalError({
               }}
             >
               Go home
-            </a>
+            </Link>
           </div>
 
           {error.digest ? (

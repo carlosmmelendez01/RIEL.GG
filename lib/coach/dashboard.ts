@@ -258,7 +258,7 @@ export async function loadCoachDashboard(
   });
 
   const upcomingMatches: CoachUpcomingMatch[] = upcomingRaw.map((m) =>
-    shapeMatchForCoach(m, rosterIds, schoolIds),
+    shapeMatchForCoach(m, rosterIds),
   );
 
   // Recent results — last 8 finished/forfeited matches for the coach's rosters
@@ -793,7 +793,6 @@ type MatchSelectShape = Awaited<
 function shapeMatchForCoach(
   m: MatchSelectShape,
   rosterIds: string[],
-  _schoolIds: string[],
 ): CoachUpcomingMatch {
   const isHome = rosterIds.includes(m.homeRosterId);
   const own = isHome ? m.homeRoster?.team : m.awayRoster?.team;

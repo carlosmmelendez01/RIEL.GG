@@ -23,8 +23,6 @@ import { prisma } from "@/lib/db/prisma";
 
 type Side = "HOME" | "AWAY";
 
-const COACH_ROLES = ["COACH", "CAPTAIN", "MANAGER"] as const;
-
 /**
  * Returns the side (HOME / AWAY) the user is on, by checking RosterMembership
  * against the match's two rosters. Returns null if the user is on neither

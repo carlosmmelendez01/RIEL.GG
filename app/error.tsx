@@ -27,7 +27,6 @@ export default function RouteError({
   useEffect(() => {
     // Fire-and-forget client log; server logs already captured the throw
     if (typeof window !== "undefined") {
-      // eslint-disable-next-line no-console
       console.error("[route-error]", error.message, { digest: error.digest });
     }
   }, [error]);

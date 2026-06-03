@@ -336,16 +336,16 @@ function CheckInSheet({
 }) {
   const [checked, setChecked] = useState(false);
 
-  // Reset confirmation state whenever the sheet closes
-  useEffect(() => {
-    if (!open) setChecked(false);
-  }, [open]);
+  function handleClose() {
+    setChecked(false);
+    onClose();
+  }
 
   if (!open || !card) return null;
 
   return (
     <SheetShell
-      onClose={onClose}
+      onClose={handleClose}
       eyebrow={
         <>
           <Bell className="h-3 w-3" /> Match check-in
@@ -394,7 +394,7 @@ function CheckInSheet({
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-md border border-border/60 px-3 py-2 text-[12px] font-medium hover:bg-card"
             >
               Cancel

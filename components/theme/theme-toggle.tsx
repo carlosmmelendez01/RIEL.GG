@@ -9,11 +9,15 @@
  * next-themes consumer on first render.
  */
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { cn } from "@/lib/utils";
+
+const subscribeMounted = () => () => {};
+const getMountedSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export function ThemeToggle({
   className,
@@ -24,11 +28,11 @@ export function ThemeToggle({
   variant?: "outline" | "subtle";
 }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    subscribeMounted,
+    getMountedSnapshot,
+    getServerSnapshot,
+  );
 
   // Placeholder while hydrating — same dimensions, no icon swap flicker
   if (!mounted) {

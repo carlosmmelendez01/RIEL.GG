@@ -36,7 +36,6 @@ import {
   type RejectApplicationResult,
 } from "@/lib/school/application-actions";
 import type { PendingApplicationRow } from "@/lib/league-admin/dashboard";
-import { cn } from "@/lib/utils";
 
 export function PendingApplicationsCard({
   applications,

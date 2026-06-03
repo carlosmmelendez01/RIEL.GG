@@ -13,7 +13,7 @@
  * back/forward, scroll position, and right-sidebar context all survive.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   CheckCircle2,
   CircleDot,

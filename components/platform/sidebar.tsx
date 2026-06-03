@@ -162,7 +162,7 @@ export function PlatformSidebar() {
             Platform Mode
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            You're managing the entire RIEL.GG platform across all tenant leagues.
+            You&apos;re managing the entire RIEL.GG platform across all tenant leagues.
           </p>
         </div>
       </div>

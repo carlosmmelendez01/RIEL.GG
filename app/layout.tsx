@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <QueryProvider>{children}</QueryProvider>
           <Toaster richColors />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );

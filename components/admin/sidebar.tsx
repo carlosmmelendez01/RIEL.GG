@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { RielIcon } from "@/components/brand/logo";
 import { BetaBadge } from "@/components/brand/beta-badge";
 import { useViewer } from "@/components/auth/viewer-provider";
 import { cn } from "@/lib/utils";
@@ -112,7 +112,7 @@ export function AdminSidebar() {
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-border/60 bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:flex">
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border/60 px-5">
         <Link href="/admin" aria-label="RIEL.GG admin">
-          <RielLockup />
+          <RielIcon size={34} />
         </Link>
         <BetaBadge />
       </div>

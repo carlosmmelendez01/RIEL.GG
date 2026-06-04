@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { RielLockup } from "@/components/brand/logo";
+import { RielIcon } from "@/components/brand/logo";
 import { BetaBadge } from "@/components/brand/beta-badge";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
@@ -19,7 +19,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2" aria-label="RIEL.GG home">
-          <RielLockup height={36} />
+          <RielIcon size={40} />
           <BetaBadge />
         </Link>
 

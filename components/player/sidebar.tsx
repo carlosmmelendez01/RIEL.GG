@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { RielIcon } from "@/components/brand/logo";
 import { BetaBadge } from "@/components/brand/beta-badge";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +86,7 @@ export function PlayerSidebar({
       {/* Logo + identity */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border/60 px-5">
         <Link href="/me" aria-label="RIEL.GG home">
-          <RielLockup height={28} />
+          <RielIcon size={32} />
         </Link>
         <BetaBadge />
       </div>

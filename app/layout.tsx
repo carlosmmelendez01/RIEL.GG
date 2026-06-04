@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: "%s · RIEL.GG",
   },
   description:
-    "RIEL.GG is the premium league management platform for the Hoosier Esports Alliance — built for educators, coaches, and players.",
+    "RIEL.GG is the Regional Interscholastic Esports League, a premium competition platform built for educators, coaches, and players.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
 };
 

@@ -1,70 +1,72 @@
 /**
- * Public application landing.
+ * /join — invite-only notice.
  *
- * Server component — fetches every league that accepts public applications,
- * shapes them for the wizard, and hands off to the client component that
- * runs the three-step flow.
- *
- * "Accepts public applications" today means simply: every League row in the
- * DB. We'll add an `acceptingApplications` toggle on League later if a
- * league needs to pause inflow without going offline.
+ * v1 is invite-only (single-league, Indiana Esports Network), so there's no
+ * public self-application funnel. Schools are onboarded by the league admin,
+ * who sends an invite link. The original 3-step `JoinWizard` component is kept
+ * in the repo (unused) so public applications can be switched back on later.
  */
 
-import { prisma } from "@/lib/db/prisma";
-import { JoinWizard, type JoinLeagueOption } from "@/components/join/join-wizard";
+import Link from "next/link";
+import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
 
-export const revalidate = 60; // refresh league list every minute
+import { RielLockup } from "@/components/brand/logo";
+import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-const REGION_BY_SLUG: Record<string, string> = {
-  // Curated for the leagues we know — others fall back to "Multi-state".
-  riel: "National",
-  hea: "Indiana",
-};
+export default function JoinPage() {
+  return (
+    <div className="bg-system flex min-h-screen flex-col">
+      <header className="border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
+          <Link href="/" aria-label="RIEL.GG home">
+            <RielLockup height={30} />
+          </Link>
+          <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground">
+            Sign in
+          </Link>
+        </div>
+      </header>
 
-export default async function JoinPage() {
-  const rows = await prisma.league.findMany({
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      classification: true,
-      primaryColor: true,
-      _count: { select: { memberships: true } },
-    },
-  });
+      <main className="flex flex-1 items-center justify-center px-6 py-16">
+        <Card className="w-full max-w-md border-border/60 bg-card/80">
+          <CardContent className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--brand-magenta)]/30 bg-[color:var(--brand-magenta)]/10 text-[color:var(--brand-magenta)]">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+              Invite-only
+            </p>
+            <h1 className="text-balance text-2xl font-semibold tracking-tight">
+              RIEL.GG is invite-only right now.
+            </h1>
+            <p className="max-w-sm text-balance text-[13px] leading-relaxed text-muted-foreground">
+              We&apos;re onboarding schools to the Indiana Esports Network directly. Reach out
+              to the league office and they&apos;ll send your school an invite link to get set
+              up.
+            </p>
 
-  const leagues: JoinLeagueOption[] = rows.map((l) => ({
-    id: l.id,
-    slug: l.slug,
-    name: l.name,
-    shortName: shortNameFor(l.name),
-    classification: l.classification,
-    primaryColor: l.primaryColor ?? "#A31F34",
-    secondaryColor: deriveSecondary(l.primaryColor ?? "#A31F34"),
-    region: REGION_BY_SLUG[l.slug] ?? "Multi-state",
-    schoolCount: l._count.memberships,
-  }));
-
-  return <JoinWizard leagues={leagues} />;
-}
-
-// --- Helpers -----------------------------------------------------------
-
-function shortNameFor(name: string): string {
-  // First letters of each significant word, max 5 chars.
-  const stop = new Set(["the", "of", "and", "&", "for"]);
-  const initials = name
-    .split(/\s+/)
-    .filter((w) => !stop.has(w.toLowerCase()))
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-  return initials.slice(0, 5) || name.slice(0, 4).toUpperCase();
-}
-
-function deriveSecondary(primary: string): string {
-  // Crude lightening — picks a complementary gold-ish tone when primary is
-  // crimson-ish, otherwise mirrors primary. Good enough for the gradient
-  // chip; designers can override per-league when the schema gains a color.
-  return /a3|c0|b0|d0/i.test(primary) ? "#FFCC00" : primary;
+            <a
+              href="mailto:hello@riel.gg?subject=Indiana%20Esports%20Network%20%E2%80%94%20school%20access"
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "mt-2 w-full bg-[color:var(--brand-crimson)] text-white hover:bg-[color:var(--brand-crimson-deep)]",
+              )}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Request access
+            </a>
+            <Link
+              href="/login"
+              className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              Already have an invite? Sign in
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
 }

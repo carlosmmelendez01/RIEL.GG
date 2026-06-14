@@ -25,6 +25,7 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { isSupportedGame } from "@/lib/games/supported";
 import { emailUrl, sendEmail } from "@/lib/email/send";
 import { RosterApproved, rosterApprovedText } from "@/lib/email/templates/roster-approved";
 import { RosterRejected, rosterRejectedText } from "@/lib/email/templates/roster-rejected";
@@ -113,6 +114,11 @@ export async function createTeam(
     };
   }
 
+  // MVP guard: only approved titles can spin up new teams.
+  if (!isSupportedGame(data.gameSlug)) {
+    return { ok: false, error: "That game isn't supported." };
+  }
+
   const game = await prisma.gameTitle.findUnique({
     where: { slug: data.gameSlug },
     select: { id: true, name: true },
@@ -194,6 +200,7 @@ export async function registerTeamForCompetition(
       select: {
         id: true,
         gameTitleId: true,
+        gameTitle: { select: { slug: true } },
         skillTier: true,
         registrationOpensAt: true,
         registrationClosesAt: true,
@@ -233,6 +240,12 @@ export async function registerTeamForCompetition(
     };
   }
 
+  if (competition.gameTitle && !isSupportedGame(competition.gameTitle.slug)) {
+    return {
+      ok: false,
+      error: "This competition's game is no longer supported for new registrations.",
+    };
+  }
   if (competition.gameTitleId !== team.gameTitleId) {
     return {
       ok: false,

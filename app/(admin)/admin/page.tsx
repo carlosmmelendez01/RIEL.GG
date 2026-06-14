@@ -17,9 +17,7 @@ import {
   Calendar,
   CalendarPlus,
   CircleAlert,
-  FileBarChart,
   Flag,
-  Megaphone,
   Percent,
   Plus,
   ShieldAlert,
@@ -38,8 +36,7 @@ import { LeagueAdminEmptyState } from "@/components/admin/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getViewer } from "@/lib/auth/viewer";
-import { loadBoardSummary, type BoardSummary } from "@/lib/board/data";
+import { type BoardSummary } from "@/lib/board/data";
 import {
   loadLeagueAdminDashboard,
   type LeagueAdminDashboardData,
@@ -84,12 +81,10 @@ export default async function AdminOverviewPage() {
     );
   }
 
-  // Viewer for the board snapshot gating. Pass leagueId so the snapshot
-  // aggregates only over the admin's league, not the whole platform.
-  const viewer = await getViewer();
-  const boardSummary: BoardSummary | null = viewer?.canView.board
-    ? await loadBoardSummary(ctx.league.id)
-    : null;
+  // MVP: the league-wide board snapshot (analytics) is out of scope, so it's
+  // never rendered on the dashboard. Re-enable by restoring the loadBoardSummary
+  // call — see git history.
+  const boardSummary: BoardSummary | null = null;
 
   return (
     <>
@@ -563,10 +558,7 @@ function QuickActionsCard({ leagueShort }: { leagueShort: string }) {
   const ACTIONS: Array<{ icon: typeof Plus; label: string; href: string; tone?: "crimson" }> = [
     { icon: Plus, label: "New competition", href: "/admin/competitions/new", tone: "crimson" },
     { icon: CalendarPlus, label: "Generate schedules", href: "/admin/scheduler" },
-    { icon: UserPlus, label: "Invite a school", href: "/admin/schools" },
-    { icon: Megaphone, label: "Post announcement", href: "/admin/announcements" },
-    { icon: FileBarChart, label: "Export season report", href: "/admin/board" },
-    { icon: ShieldAlert, label: "Manage league admins", href: "/admin/settings" },
+    { icon: UserPlus, label: "Review schools", href: "/admin/schools" },
   ];
 
   return (

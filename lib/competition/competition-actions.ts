@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { isSupportedGame } from "@/lib/games/supported";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
 
 // --- Shared types ------------------------------------------------------
@@ -114,6 +115,11 @@ export async function createCompetition(
 
   const ctx = await requireLeagueAdmin(user.id);
   if (!ctx) return { ok: false, error: "Only league admins can create competitions." };
+
+  // MVP guard: only approved titles can host new competitions.
+  if (!isSupportedGame(data.gameSlug)) {
+    return { ok: false, error: "That game isn't supported for new competitions." };
+  }
 
   // Look up the game by slug
   const game = await prisma.gameTitle.findUnique({

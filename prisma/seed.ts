@@ -10,6 +10,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { PLATFORM_LEAGUES, PLATFORM_GAMES, PLATFORM_ACTIVITY } from "../lib/mock/platform";
+import { SUPPORTED_GAMES, isSupportedGame } from "../lib/games/supported";
 import {
   PLATFORM_SCHOOLS,
   PLATFORM_ADMINS,
@@ -63,13 +64,35 @@ async function main() {
   const gameMap = new Map<string, string>(); // mock id → real id
   const formatMap = new Map<string, string>(); // `{gameId}:{format}` → real id
 
-  for (const g of PLATFORM_GAMES) {
+  // Seed source = the central supported-games config (active) PLUS any legacy
+  // titles still referenced by demo data (lol, nba2k), which we seed INACTIVE
+  // so historical competitions/teams keep resolving but the titles are hidden
+  // from every dropdown and blocked from new creation.
+  type GameSeed = { slug: string; name: string; publisher: string; formats: string[]; active: boolean };
+  const gameSeeds: GameSeed[] = [
+    ...SUPPORTED_GAMES.map((g) => ({
+      slug: g.slug,
+      name: g.name,
+      publisher: g.publisher,
+      formats: g.formats,
+      active: true,
+    })),
+    ...PLATFORM_GAMES.filter((p) => !isSupportedGame(p.id)).map((p) => ({
+      slug: p.id,
+      name: p.name,
+      publisher: p.publisher,
+      formats: p.formats,
+      active: false, // deprecated — preserved for demo continuity, not selectable
+    })),
+  ];
+
+  for (const g of gameSeeds) {
     const game = await prisma.gameTitle.upsert({
-      where: { slug: g.id },
-      update: { name: g.name, publisher: g.publisher, active: true },
-      create: { name: g.name, slug: g.id, publisher: g.publisher, active: true },
+      where: { slug: g.slug },
+      update: { name: g.name, publisher: g.publisher, active: g.active },
+      create: { name: g.name, slug: g.slug, publisher: g.publisher, active: g.active },
     });
-    gameMap.set(g.id, game.id);
+    gameMap.set(g.slug, game.id);
 
     for (const fmt of g.formats) {
       const f = await prisma.gameFormat.upsert({
@@ -81,10 +104,11 @@ async function main() {
           playerCount: FORMAT_PLAYER_COUNT[fmt] ?? 5,
         },
       });
-      formatMap.set(`${g.id}:${fmt}`, f.id);
+      formatMap.set(`${g.slug}:${fmt}`, f.id);
     }
   }
-  console.log(`  → ${gameMap.size} games, ${formatMap.size} formats`);
+  const activeGames = gameSeeds.filter((g) => g.active).length;
+  console.log(`  → ${gameMap.size} games (${activeGames} active), ${formatMap.size} formats`);
 
   // ============================================================
   // 2. Leagues

@@ -2,21 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Home,
-  Building2,
-  Calendar,
-  Users,
-  UserCircle2,
-  Trophy,
-  Megaphone,
-  MessageSquare,
-  Network,
-  Sparkles,
-  Settings,
-  Swords,
-  HeartHandshake,
-} from "lucide-react";
+import { Home, Building2, Calendar, Users, Trophy } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { RielIcon } from "@/components/brand/logo";
@@ -36,33 +22,18 @@ type NavSection = {
   items: NavItem[];
 };
 
+// MVP navigation — the working coach surfaces only. Not-yet-built items
+// (Players, Brackets, Announcements, Messages, Divisions, etc.) were trimmed
+// for launch.
 const SECTIONS: NavSection[] = [
   {
     label: "Program",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: Home },
       { label: "Schedule", href: "/dashboard/matches", icon: Calendar },
-      { label: "School", href: "/dashboard/school", icon: Building2 },
       { label: "Teams", href: "/dashboard/teams", icon: Users },
-      { label: "Players", href: "/dashboard/players", icon: UserCircle2, soon: true },
+      { label: "School", href: "/dashboard/school", icon: Building2 },
       { label: "Standings", href: "/dashboard/standings", icon: Trophy },
-      { label: "Brackets", href: "/dashboard/brackets", icon: Swords, soon: true },
-    ],
-  },
-  {
-    label: "Communication",
-    items: [
-      { label: "Announcements", href: "/dashboard/announcements", icon: Megaphone, soon: true },
-      { label: "Messages", href: "/dashboard/messages", icon: MessageSquare, soon: true },
-    ],
-  },
-  {
-    label: "League",
-    items: [
-      { label: "Divisions", href: "/dashboard/divisions", icon: Network, soon: true },
-      { label: "Unified", href: "/dashboard/unified", icon: HeartHandshake, soon: true },
-      { label: "Insights", href: "/dashboard/insights", icon: Sparkles, soon: true },
-      { label: "Settings", href: "/dashboard/settings", icon: Settings, soon: true },
     ],
   },
 ];

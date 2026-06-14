@@ -3,25 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
-  BarChart3,
   Building2,
   Calendar,
-  CalendarRange,
-  CircleAlert,
-  FileBarChart,
-  Gamepad2,
-  HeartHandshake,
   LayoutDashboard,
-  Megaphone,
-  Network,
-  Plug,
-  ScrollText,
-  Settings,
-  Sparkles,
   Trophy,
-  UserCog,
-  Users,
   Wand2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -45,55 +30,17 @@ type NavSection = {
   items: NavItem[];
 };
 
+// MVP navigation — only the working league-operations surfaces. Analytics
+// (Board), and not-yet-built "soon" sections were trimmed for launch.
 const SECTIONS: NavSection[] = [
   {
-    label: "Overview",
+    label: "League",
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-      { label: "Board", href: "/admin/board", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Season",
-    items: [
-      { label: "Seasons", href: "/admin/seasons", icon: CalendarRange, soon: true },
       { label: "Competitions", href: "/admin/competitions", icon: Trophy },
-      { label: "Game catalog", href: "/admin/games", icon: Gamepad2, soon: true },
-      { label: "Tournaments", href: "/admin/tournaments", icon: Network, soon: true },
-    ],
-  },
-  {
-    label: "Participants",
-    items: [
-      { label: "Schools", href: "/admin/schools", icon: Building2 },
-      { label: "Teams", href: "/admin/teams", icon: Users, soon: true },
-      { label: "Coaches", href: "/admin/coaches", icon: UserCog, soon: true },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
       { label: "Scheduler", href: "/admin/scheduler", icon: Wand2 },
-      { label: "All matches", href: "/admin/matches", icon: Calendar },
-      { label: "Disputes", href: "/admin/disputes", icon: CircleAlert, soon: true },
-      { label: "Reports", href: "/admin/reports", icon: FileBarChart, soon: true },
-      { label: "Audit log", href: "/admin/audit", icon: ScrollText, soon: true },
-    ],
-  },
-  {
-    label: "Communication",
-    items: [
-      { label: "Announcements", href: "/admin/announcements", icon: Megaphone, soon: true },
-      { label: "Unified", href: "/admin/unified", icon: HeartHandshake, soon: true },
-      { label: "Insights", href: "/admin/insights", icon: Sparkles, soon: true },
-    ],
-  },
-  {
-    label: "Settings",
-    items: [
-      { label: "Branding", href: "/admin/branding", icon: Activity, soon: true },
-      { label: "Integrations", href: "/admin/integrations", icon: Plug, soon: true },
-      { label: "Settings", href: "/admin/settings", icon: Settings, soon: true },
+      { label: "Matches", href: "/admin/matches", icon: Calendar },
+      { label: "Schools", href: "/admin/schools", icon: Building2 },
     ],
   },
 ];

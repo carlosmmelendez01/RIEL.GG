@@ -36,16 +36,16 @@ import {
   createCompetition,
   type CreateCompetitionResult,
 } from "@/lib/competition/competition-actions";
+import { SUPPORTED_GAMES } from "@/lib/games/supported";
 import { cn } from "@/lib/utils";
 
-const GAMES = [
-  { id: "lol", name: "League of Legends", format: "5v5" },
-  { id: "val", name: "Valorant", format: "5v5" },
-  { id: "rl", name: "Rocket League", format: "3v3" },
-  { id: "ow2", name: "Overwatch 2", format: "5v5" },
-  { id: "smash", name: "Super Smash Bros.", format: "1v1 / Crew" },
-  { id: "fortnite", name: "Fortnite", format: "Squads" },
-];
+// Games come from the central supported-games config — the single source of
+// truth. Adding/removing a title there updates this dropdown automatically.
+const GAMES = SUPPORTED_GAMES.map((g) => ({
+  id: g.slug,
+  name: g.name,
+  format: g.formats.join(" / "),
+}));
 
 const TIERS = ["Varsity", "JV", "Club", "Premier", "Academy", "Middle School", "Unified"];
 

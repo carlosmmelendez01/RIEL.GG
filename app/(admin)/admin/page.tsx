@@ -36,7 +36,7 @@ import { LeagueAdminEmptyState } from "@/components/admin/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { type BoardSummary } from "@/lib/board/data";
+import { loadBoardSummary, type BoardSummary } from "@/lib/board/data";
 import {
   loadLeagueAdminDashboard,
   type LeagueAdminDashboardData,
@@ -81,10 +81,9 @@ export default async function AdminOverviewPage() {
     );
   }
 
-  // MVP: the league-wide board snapshot (analytics) is out of scope, so it's
-  // never rendered on the dashboard. Re-enable by restoring the loadBoardSummary
-  // call — see git history.
-  const boardSummary: BoardSummary | null = null;
+  // League-wide analytics snapshot (forfeits, FF rate, repeat offenders),
+  // scoped to this league. Rendered as a ribbon that links to the full board.
+  const boardSummary = await loadBoardSummary(ctx.league.id);
 
   return (
     <>

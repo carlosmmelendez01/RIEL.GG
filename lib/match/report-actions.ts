@@ -56,7 +56,7 @@ function revalidateMatchSurfaces(matchId: string) {
   revalidatePath(`/admin/matches/${matchId}`);
   revalidatePath("/admin/matches");
   revalidatePath("/admin");
-  revalidatePath("/admin/board");
+  revalidatePath("/admin/health");
   revalidatePath("/dashboard");
   revalidatePath("/me");
 }

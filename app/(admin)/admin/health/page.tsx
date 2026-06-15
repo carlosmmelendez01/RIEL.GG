@@ -1,12 +1,9 @@
 /**
- * Board Dashboard — League-wide forfeit aggregates.
+ * League Health — league-wide forfeit & integrity analytics.
  *
- * Default landing for board members and platform admins. Shows hero metrics,
- * 8-week FF rate trend, FF rate by game, top forfeiting teams, and a recent
- * forfeit activity feed.
- *
- * Read-only for now. Forfeit-recording mutations come in slice 4; CSV/PDF
- * exports in slice 6; realtime in slice 7.
+ * Shown to league owners/admins/staff. Hero metrics, 8-week FF rate trend,
+ * FF rate by game, top forfeiting teams, reason breakdown, reschedule
+ * pressure, and a recent forfeit feed. Scoped to the signed-in admin's league.
  *
  * All charts are inline SVG / CSS — no third-party chart deps.
  */
@@ -49,22 +46,21 @@ import { cn } from "@/lib/utils";
 // --- Page ----------------------------------------------------------------
 
 export const metadata = {
-  title: "Board Dashboard",
-  description: "League-wide forfeit aggregates and trends.",
+  title: "League Health",
+  description: "League-wide forfeit, dispute, and reschedule analytics.",
 };
 
-export default async function BoardDashboardPage() {
+export default async function LeagueHealthPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/admin/board");
+  if (!user) redirect("/login?next=/admin/health");
 
-  // Gate by league admin role and scope the aggregates to THIS league only.
-  // Previously /admin/board pulled forfeit data across every league in the
-  // DB, which leaked one league's stats into another's admin view.
+  // Gate by league admin role and scope the aggregates to THIS league only,
+  // so one league's stats never leak into another's admin view.
   const ctx = await requireLeagueAdmin(user.id);
   if (!ctx) {
     return (
       <>
-        <AdminTopbar title="Board dashboard" eyebrow="Admin view" />
+        <AdminTopbar title="League health" eyebrow="Admin view" />
         <main className="flex-1 px-6 py-12 md:px-8">
           <LeagueAdminEmptyState kind="no-admin" />
         </main>
@@ -77,8 +73,8 @@ export default async function BoardDashboardPage() {
   return (
     <>
       <AdminTopbar
-        title="Board dashboard"
-        eyebrow={`${ctx.league.name} · league-wide stats`}
+        title="League health"
+        eyebrow={`${ctx.league.name} · forfeits, disputes & reschedule pressure`}
       />
 
       <main className="flex-1 space-y-8 px-6 py-6 md:px-8">
@@ -106,7 +102,7 @@ export default async function BoardDashboardPage() {
           <div className="flex flex-col items-end gap-1 text-right">
             <span className="rounded-md border border-[color:var(--brand-purple)]/30 bg-[color:var(--brand-purple)]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--brand-purple)]">
               <Sparkles className="mr-1 inline h-3 w-3" />
-              Board view
+              League health
             </span>
             <p className="text-[11px] text-muted-foreground">
               Auto-refreshes when forfeits are recorded
@@ -289,7 +285,7 @@ export default async function BoardDashboardPage() {
               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--brand-purple)]" />
               <div className="text-[12px] text-muted-foreground">
                 <p className="font-semibold text-foreground">
-                  Coming next on the board view
+                  Coming next to League Health
                 </p>
                 <p className="mt-1">
                   CSV + branded PDF export · realtime updates via Supabase

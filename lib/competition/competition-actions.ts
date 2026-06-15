@@ -52,7 +52,7 @@ function revalidateCompetitionSurfaces(competitionId?: string) {
   if (competitionId) revalidatePath(`/admin/competitions/${competitionId}`);
   revalidatePath("/admin/matches");
   revalidatePath("/admin/scheduler");
-  revalidatePath("/admin/board");
+  revalidatePath("/admin/health");
 }
 
 // --- 1. createCompetition ----------------------------------------------

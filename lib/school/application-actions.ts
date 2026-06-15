@@ -33,7 +33,7 @@ import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
 function revalidateApplicationSurfaces() {
   revalidatePath("/admin/schools");
   revalidatePath("/admin");
-  revalidatePath("/admin/board");
+  revalidatePath("/admin/health");
   revalidatePath("/join");
 }
 

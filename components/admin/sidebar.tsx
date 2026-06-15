@@ -44,7 +44,7 @@ const SECTIONS: NavSection[] = [
       { label: "Matches", href: "/admin/matches", icon: Calendar },
       { label: "Schools", href: "/admin/schools", icon: Building2 },
       { label: "Admins", href: "/admin/admins", icon: ShieldCheck },
-      { label: "Board", href: "/admin/board", icon: BarChart3 },
+      { label: "League Health", href: "/admin/health", icon: BarChart3 },
     ],
   },
 ];

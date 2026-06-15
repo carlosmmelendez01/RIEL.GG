@@ -417,7 +417,7 @@ function Step2Reason({
       <div>
         <h3 className="text-[16px] font-semibold tracking-tight">Why are you forfeiting?</h3>
         <p className="mt-1 text-[12px] text-muted-foreground">
-          Pick the closest match. The board uses this to spot trends — accurate answers reduce
+          Pick the closest match. The league uses this to spot trends — accurate answers reduce
           forfeits across the league.
         </p>
       </div>

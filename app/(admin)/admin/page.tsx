@@ -81,8 +81,8 @@ export default async function AdminOverviewPage() {
     );
   }
 
-  // League-wide analytics snapshot (forfeits, FF rate, repeat offenders),
-  // scoped to this league. Rendered as a ribbon that links to the full board.
+  // League Health snapshot (forfeits, FF rate, repeat offenders), scoped to
+  // this league. Rendered as a ribbon that links to the full /admin/health page.
   const boardSummary = await loadBoardSummary(ctx.league.id);
 
   return (
@@ -165,7 +165,7 @@ export default async function AdminOverviewPage() {
           />
         </section>
 
-        {/* Board snapshot — gated by canView.board */}
+        {/* League Health snapshot ribbon */}
         {boardSummary ? <BoardSnapshotSection summary={boardSummary} /> : null}
 
         {/* Two-column action area */}
@@ -594,14 +594,14 @@ function QuickActionsCard({ leagueShort }: { leagueShort: string }) {
   );
 }
 
-// --- Board snapshot ribbon (unchanged from prior pass) -----------------
+// --- League Health snapshot ribbon -------------------------------------
 
 function BoardSnapshotSection({ summary }: { summary: BoardSummary }) {
   const { headline, repeatOffenderCount } = summary;
   return (
     <section>
       <Link
-        href="/admin/board"
+        href="/admin/health"
         className="group block rounded-xl border border-[color:var(--brand-purple)]/25 bg-card/60 p-3 transition-colors hover:border-[color:var(--brand-purple)]/45 hover:bg-card md:p-4"
       >
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -611,7 +611,7 @@ function BoardSnapshotSection({ summary }: { summary: BoardSummary }) {
             </div>
             <div className="leading-tight">
               <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
-                Board snapshot
+                League health
               </p>
               <p className="text-[11px] text-muted-foreground">Last 30 days</p>
             </div>
@@ -644,7 +644,7 @@ function BoardSnapshotSection({ summary }: { summary: BoardSummary }) {
           </div>
 
           <div className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-            Full board view
+            Open League Health
             <ArrowUpRight className="h-3 w-3" />
           </div>
         </div>

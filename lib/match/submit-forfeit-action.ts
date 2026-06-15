@@ -231,7 +231,7 @@ export async function submitForfeit(input: SubmitForfeitInputType): Promise<Subm
   // 9. Revalidate every page that surfaces match state
   revalidatePath(`/dashboard/matches/${matchId}`);
   revalidatePath(`/admin/matches/${matchId}`);
-  revalidatePath(`/admin/board`);
+  revalidatePath(`/admin/health`);
   revalidatePath(`/admin`);
   revalidatePath(`/me`);
 

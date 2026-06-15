@@ -21,7 +21,7 @@ export type ViewerInfo = {
   email: string;
   subtitle: { coach: string; admin: string; platform: string };
   // `board` gates the BoardSnapshot section on /admin and access to
-  // /admin/board. Currently true for league OWNER/ADMIN/STAFF and platform
+  // /admin/health. Currently true for league OWNER/ADMIN/STAFF and platform
   // owners; later we may carve out a strict view-only BOARD_MEMBER role.
   canView: { coach: boolean; admin: boolean; platform: boolean; board: boolean };
 };

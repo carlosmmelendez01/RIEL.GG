@@ -1,7 +1,7 @@
 /**
  * Shared data layer for the Board Dashboard.
  *
- * `loadBoardData()`    — full payload for /admin/board (trend, by-game, top
+ * `loadBoardData()`    — full payload for /admin/health (trend, by-game, top
  *                         offenders, recent feed, all hero stats).
  * `loadBoardSummary()` — slim payload for the /admin command-center snapshot
  *                         (just the essential 30-day numbers + 4 recent FFs).
@@ -107,10 +107,10 @@ export type BoardSummary = {
 // --- Loaders -------------------------------------------------------------
 
 /**
- * Full Board Dashboard payload — everything /admin/board needs.
+ * Full Board Dashboard payload — everything /admin/health needs.
  *
  * Pass `leagueId` to scope the aggregates to a single league (the normal
- * /admin/board path). Omit it for the platform-wide view (future
+ * /admin/health path). Omit it for the platform-wide view (future
  * /platform/board surface).
  */
 export async function loadBoardData(leagueId?: string): Promise<BoardData> {

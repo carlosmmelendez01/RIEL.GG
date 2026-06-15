@@ -27,8 +27,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
-import { PLATFORM_GAMES, type ClassificationKind } from "@/lib/mock/platform";
+import { type ClassificationKind } from "@/lib/mock/platform";
+import { SUPPORTED_GAMES } from "@/lib/games/supported";
 import { cn } from "@/lib/utils";
+
+// Games come from the central supported-games config (no League of Legends,
+// includes Apex/Minecraft/Tetris/iRacing). Shaped for this wizard's cards.
+const GAMES = SUPPORTED_GAMES.map((g) => ({
+  id: g.slug,
+  name: g.name,
+  publisher: g.publisher,
+  formats: g.formats,
+}));
 
 const STEPS = [
   { id: 1, label: "Identity", icon: ClipboardList },
@@ -560,10 +570,10 @@ function GamesStep({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-[11px] text-muted-foreground">
-          {selectedGames.length} of {PLATFORM_GAMES.length} games selected
+          {selectedGames.length} of {GAMES.length} games selected
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
-          {PLATFORM_GAMES.map((g) => {
+          {GAMES.map((g) => {
             const selected = selectedGames.includes(g.id);
             return (
               <button
@@ -595,15 +605,6 @@ function GamesStep({
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {g.publisher} · Formats: {g.formats.join(", ")}
                   </p>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-[color:var(--brand-crimson)]"
-                        style={{ width: `${g.popularity}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{g.popularity}% adoption</span>
-                  </div>
                 </div>
               </button>
             );
@@ -709,7 +710,7 @@ function OwnerStep(props: {
 
 function ReviewStep({ data }: { data: Record<string, unknown> }) {
   const games = (data.selectedGames as string[]).map(
-    (id) => PLATFORM_GAMES.find((g) => g.id === id)?.name ?? id,
+    (id) => GAMES.find((g) => g.id === id)?.name ?? id,
   );
 
   return (

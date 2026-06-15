@@ -4,8 +4,18 @@ import { PlatformTopbar } from "@/components/platform/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
-import { PLATFORM_GAMES, PLATFORM_LEAGUES, type PlatformGame } from "@/lib/mock/platform";
+import { PLATFORM_LEAGUES, type PlatformGame } from "@/lib/mock/platform";
+import { SUPPORTED_GAMES } from "@/lib/games/supported";
 import { cn } from "@/lib/utils";
+
+// Titles come from the central supported-games config (no League of Legends).
+const GAMES: PlatformGame[] = SUPPORTED_GAMES.map((g) => ({
+  id: g.slug,
+  name: g.name,
+  publisher: g.publisher,
+  formats: g.formats,
+  popularity: 0,
+}));
 
 // Per-game mock state — which leagues have it enabled, latest activity etc.
 const GAME_USAGE: Record<string, { enabledByLeagues: number; activeCompetitions: number; matchesThisMonth: number; status: "ACTIVE" | "BETA" | "DEPRECATED" }> = {
@@ -29,12 +39,12 @@ export default function PlatformGamesPage() {
     <>
       <PlatformTopbar
         title="Game library"
-        eyebrow={`${PLATFORM_GAMES.length} titles supported · ${totalMatches.toLocaleString()} matches this month across the platform`}
+        eyebrow={`${GAMES.length} titles supported · ${totalMatches.toLocaleString()} matches this month across the platform`}
       />
 
       <main className="flex-1 space-y-6 px-6 py-6 md:px-8">
         <section className="grid gap-3 sm:grid-cols-3">
-          <Stat label="Titles supported" value={String(PLATFORM_GAMES.length)} icon={Gamepad2} />
+          <Stat label="Titles supported" value={String(GAMES.length)} icon={Gamepad2} />
           <Stat label="Active competitions" value={String(Object.values(GAME_USAGE).reduce((s, g) => s + g.activeCompetitions, 0))} icon={Trophy} tone="crimson" />
           <Stat label="Matches this month" value={totalMatches.toLocaleString()} icon={TrendingUp} tone="gold" />
         </section>
@@ -59,7 +69,7 @@ export default function PlatformGamesPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {PLATFORM_GAMES.map((g) => (
+          {GAMES.map((g) => (
             <GameCard key={g.id} game={g} totalLeagues={totalLeagues} />
           ))}
         </div>

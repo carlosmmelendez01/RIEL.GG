@@ -323,9 +323,15 @@ function LeagueReadyToClaimCard({
     code: string;
     league: { name: string; slug: string };
     grantsOwnership: boolean;
+    rolesGranted: string[];
     expiresAt: Date | null;
   };
 }) {
+  const granted = invite.grantsOwnership
+    ? "OWNER"
+    : invite.rolesGranted.find((r) => ["OWNER", "ADMIN", "STAFF"].includes(r)) ?? "ADMIN";
+  const roleWord = granted === "OWNER" ? "owner" : granted === "STAFF" ? "staff member" : "admin";
+  const roleLabel = granted === "OWNER" ? "Owner" : granted === "STAFF" ? "Staff" : "Admin";
   return (
     <Card className="border-emerald-500/40 bg-card/80">
       <CardHeader>
@@ -337,7 +343,7 @@ function LeagueReadyToClaimCard({
           {invite.league.name}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          You&apos;re about to become the {invite.grantsOwnership ? "owner" : "admin"} of this
+          You&apos;re about to become {/^[aeiou]/.test(roleWord) ? "an" : "a"} {roleWord} of this
           league on RIEL.GG.
         </p>
       </CardHeader>
@@ -348,7 +354,7 @@ function LeagueReadyToClaimCard({
             <span className="text-muted-foreground"> · /{invite.league.slug}</span>
           </DetailRow>
           <DetailRow icon={CheckCircle2} label="Role">
-            <span>{invite.grantsOwnership ? "Owner" : "Admin"}</span>
+            <span>{roleLabel}</span>
           </DetailRow>
           {invite.expiresAt ? (
             <DetailRow icon={Clock} label="Expires">

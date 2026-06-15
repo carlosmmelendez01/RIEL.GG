@@ -6,6 +6,7 @@ import {
   Building2,
   Calendar,
   LayoutDashboard,
+  ShieldCheck,
   Trophy,
   Wand2,
 } from "lucide-react";
@@ -41,6 +42,7 @@ const SECTIONS: NavSection[] = [
       { label: "Scheduler", href: "/admin/scheduler", icon: Wand2 },
       { label: "Matches", href: "/admin/matches", icon: Calendar },
       { label: "Schools", href: "/admin/schools", icon: Building2 },
+      { label: "Admins", href: "/admin/admins", icon: ShieldCheck },
     ],
   },
 ];

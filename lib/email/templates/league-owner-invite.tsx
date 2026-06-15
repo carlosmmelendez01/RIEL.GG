@@ -66,3 +66,61 @@ Claim it here: ${args.claimUrl}
 
 — RIEL.GG`;
 }
+
+/**
+ * Sent when an existing league owner/admin invites another person onto the
+ * league staff (createLeagueInvite). Works for any league role.
+ */
+export function LeagueAdminInvite({
+  invitedByName,
+  leagueName,
+  roleLabel,
+  claimUrl,
+  expiresAt,
+}: {
+  invitedByName: string;
+  leagueName: string;
+  roleLabel: string;
+  claimUrl: string;
+  expiresAt: Date;
+}) {
+  const preview = `${invitedByName} invited you to help run ${leagueName} as ${roleLabel}.`;
+  const expires = expiresAt.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return (
+    <EmailLayout preview={preview}>
+      <H1>You&apos;re invited to {leagueName}.</H1>
+      <Body14>
+        {invitedByName} added you to {leagueName} on RIEL.GG as {roleLabel}. Click below
+        to sign in and join the league staff.
+      </Body14>
+      <PrimaryButton href={claimUrl}>Accept invitation</PrimaryButton>
+      <DetailBlock>
+        <DetailRow label="League" value={leagueName} />
+        <DetailRow label="Role" value={roleLabel} />
+        <DetailRow label="Expires" value={expires} />
+      </DetailBlock>
+      <Muted12>
+        This invite is locked to your email address. If you didn&apos;t expect it,
+        ignore this message — it&apos;ll expire on its own.
+      </Muted12>
+    </EmailLayout>
+  );
+}
+
+export function leagueAdminInviteText(args: {
+  invitedByName: string;
+  leagueName: string;
+  roleLabel: string;
+  claimUrl: string;
+}): string {
+  return `${args.invitedByName} invited you to ${args.leagueName} as ${args.roleLabel} on RIEL.GG.
+
+Accept here: ${args.claimUrl}
+
+— RIEL.GG`;
+}

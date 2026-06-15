@@ -1,19 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
   Building2,
   Check,
+  CheckCircle2,
   ChevronsUpDown,
+  CircleAlert,
   ClipboardList,
   GraduationCap,
   Globe2,
   Mail,
   Palette,
-  Save,
   Sparkles,
   ShieldCheck,
   School,
@@ -29,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { type ClassificationKind } from "@/lib/mock/platform";
 import { SUPPORTED_GAMES } from "@/lib/games/supported";
+import { createLeague, type CreateLeagueResult } from "@/lib/league/league-actions";
 import { cn } from "@/lib/utils";
 
 // Games come from the central supported-games config (no League of Legends,
@@ -117,6 +119,27 @@ export default function CreateLeaguePage() {
     return true;
   }, [step, name, computedSlug, ownerName, ownerEmail]);
 
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<CreateLeagueResult | null>(null);
+  const provisioned = result?.ok === true;
+
+  function handleProvision() {
+    if (pending || provisioned) return;
+    setResult(null);
+    startTransition(async () => {
+      const r = await createLeague({
+        name: name.trim(),
+        slug: computedSlug,
+        classification,
+        primaryColor,
+        description: tagline.trim() || undefined,
+        ownerName: ownerName.trim(),
+        ownerEmail: ownerEmail.trim(),
+      });
+      setResult(r);
+    });
+  }
+
   return (
     <>
       <PlatformTopbar
@@ -193,12 +216,25 @@ export default function CreateLeaguePage() {
           ) : null}
         </div>
 
+        {result ? (
+          <div className="mx-auto mt-6 max-w-3xl">
+            {result.ok ? (
+              <ProvisionSuccess result={result} />
+            ) : (
+              <div className="flex items-start gap-2 rounded-lg border border-[color:var(--brand-crimson)]/40 bg-[color:var(--brand-crimson)]/10 p-4 text-[13px] text-[color:var(--brand-crimson)]">
+                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{result.error}</p>
+              </div>
+            )}
+          </div>
+        ) : null}
+
         <div className="mx-auto mt-8 flex max-w-3xl items-center justify-between border-t border-border/60 pt-6">
           <Link href="/platform/leagues" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-            Cancel
+            {provisioned ? "Done" : "Cancel"}
           </Link>
           <div className="flex gap-2">
-            {step > 1 ? (
+            {step > 1 && !provisioned ? (
               <button
                 onClick={() => setStep((s) => s - 1)}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
@@ -220,26 +256,100 @@ export default function CreateLeaguePage() {
                 <ArrowRight className="ml-1.5 h-3 w-3" />
               </button>
             ) : (
-              <>
-                <button className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                  <Save className="mr-1.5 h-3 w-3" />
-                  Save as draft
-                </button>
-                <button
-                  className={cn(
-                    buttonVariants({ size: "sm" }),
-                    "bg-[color:var(--brand-crimson)] text-white hover:bg-[color:var(--brand-crimson-deep)] glow-crimson",
-                  )}
-                >
-                  <Sparkles className="mr-1.5 h-3 w-3" />
-                  Provision league
-                </button>
-              </>
+              <button
+                onClick={handleProvision}
+                disabled={pending || provisioned}
+                className={cn(
+                  buttonVariants({ size: "sm" }),
+                  "bg-[color:var(--brand-crimson)] text-white hover:bg-[color:var(--brand-crimson-deep)] glow-crimson disabled:opacity-60",
+                )}
+              >
+                {provisioned ? (
+                  <>
+                    <CheckCircle2 className="mr-1.5 h-3 w-3" />
+                    Provisioned
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-1.5 h-3 w-3" />
+                    {pending ? "Provisioning…" : "Provision league"}
+                  </>
+                )}
+              </button>
             )}
           </div>
         </div>
       </main>
     </>
+  );
+}
+
+// --- Provision success --------------------------------------------------
+
+function ProvisionSuccess({
+  result,
+}: {
+  result: Extract<CreateLeagueResult, { ok: true }>;
+}) {
+  const [copied, setCopied] = useState(false);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const fullUrl = result.inviteUrl ? `${origin}${result.inviteUrl}` : null;
+
+  return (
+    <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+      <div className="flex items-start gap-2.5">
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <p className="text-[14px] font-semibold">League provisioned.</p>
+            <p className="text-[13px] text-muted-foreground">
+              {result.ownerAttached
+                ? `${result.ownerEmail} already had a RIEL.GG account and is now the league owner — they'll see it under their admin dashboard.`
+                : `We created the league and issued an owner invite to ${result.ownerEmail}. Send them the claim link below so they can sign in and take ownership.`}
+            </p>
+          </div>
+
+          {fullUrl ? (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Owner claim link
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-[12px]">
+                  {fullUrl}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(fullUrl);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                If email is configured we also emailed it to them. The link expires in 30 days.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link
+              href="/platform/leagues"
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "bg-[color:var(--brand-crimson)] text-white hover:bg-[color:var(--brand-crimson-deep)]",
+              )}
+            >
+              View leagues
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -761,8 +871,8 @@ function ReviewStep({ data }: { data: Record<string, unknown> }) {
         <SummaryCard title="Owner" icon={UserPlus}>
           <Row label="Name" value={(data.ownerName as string) || "—"} />
           <Row label="Email" value={(data.ownerEmail as string) || "—"} />
-          <Row label="Roles granted" value="Coach + Manager + Owner" />
-          <Row label="Invite expires" value="In 7 days" />
+          <Row label="Role granted" value="League owner" />
+          <Row label="Invite expires" value="In 30 days" />
         </SummaryCard>
 
         <SummaryCard title="Branding" icon={Palette}>
@@ -773,14 +883,14 @@ function ReviewStep({ data }: { data: Record<string, unknown> }) {
         <SummaryCard title="Game catalog" icon={Trophy}>
           <p className="text-[12px] text-foreground">{games.join(" · ")}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            {games.length} games enabled. Owner can adjust later.
+            Titles the owner can run competitions in. All supported games are available league-wide.
           </p>
         </SummaryCard>
 
         <SummaryCard title="Provisioning" icon={Building2}>
-          <Row label="Subdomain" value={`riel.gg/${data.slug as string}`} mono />
-          <Row label="School slots" value="Unlimited (Tier 2)" />
-          <Row label="Default tiers" value="Varsity · JV · Club · Unified" />
+          <Row label="Workspace" value={`riel.gg/${data.slug as string}`} mono />
+          <Row label="Classification" value={data.classification as string} />
+          <Row label="Status" value="Live on provision" />
         </SummaryCard>
       </div>
 
@@ -790,11 +900,10 @@ function ReviewStep({ data }: { data: Record<string, unknown> }) {
           <div>
             <p className="text-[13px] font-semibold">When you click &quot;Provision league&quot;:</p>
             <ul className="mt-1 space-y-0.5 text-[12px] text-muted-foreground">
-              <li>• League workspace at <span className="font-mono">riel.gg/{data.slug as string}</span> is created</li>
-              <li>• {games.length} game competitions are pre-configured (in Draft state)</li>
-              <li>• Owner invite is generated and emailed to {(data.ownerEmail as string) || "—"}</li>
-              <li>• {data.trialMode ? "14-day trial timer starts" : "Paid plan billing begins"}</li>
-              <li>• League appears in your /platform/leagues directory</li>
+              <li>• The league is created at <span className="font-mono">riel.gg/{data.slug as string}</span></li>
+              <li>• An owner invite is generated for {(data.ownerEmail as string) || "—"} (emailed when email is configured)</li>
+              <li>• The owner signs in via the claim link to take ownership</li>
+              <li>• The league appears in your /platform/leagues directory</li>
             </ul>
           </div>
         </CardContent>

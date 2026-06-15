@@ -209,6 +209,155 @@ export async function acceptSchoolInvite(input: {
   };
 }
 
+// --- acceptLeagueInvite ------------------------------------------------
+
+export type AcceptLeagueInviteResult =
+  | {
+      ok: true;
+      leagueId: string;
+      leagueName: string;
+      role: "OWNER" | "ADMIN" | "STAFF";
+    }
+  | {
+      ok: false;
+      error: string;
+      code?: "EMAIL_MISMATCH" | "EXPIRED" | "EXHAUSTED" | "NOT_FOUND" | "WRONG_SCOPE" | "NO_USER";
+    };
+
+const VALID_LEAGUE_ROLES = new Set(["OWNER", "ADMIN", "STAFF"]);
+
+/**
+ * Signed-in user claims a LEAGUE-scoped invite (minted by createLeague when
+ * provisioning a league for an email without an account). Mirrors
+ * acceptSchoolInvite, but upserts a `LeagueAdminship` granting the league
+ * role. Ownership invites resolve to OWNER.
+ */
+export async function acceptLeagueInvite(input: {
+  code: string;
+}): Promise<AcceptLeagueInviteResult> {
+  const parsed = AcceptInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid invite code.", code: "NOT_FOUND" };
+  }
+  const { code } = parsed.data;
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: "Sign in first — then come back to claim this invite.",
+      code: "NO_USER",
+    };
+  }
+
+  const invite = await prisma.invite.findUnique({
+    where: { code },
+    select: {
+      id: true,
+      scope: true,
+      leagueId: true,
+      status: true,
+      rolesGranted: true,
+      grantsOwnership: true,
+      intendedEmail: true,
+      maxUses: true,
+      usedCount: true,
+      expiresAt: true,
+      league: { select: { id: true, name: true } },
+    },
+  });
+  if (!invite) {
+    return {
+      ok: false,
+      error: "Invite not found. Double-check the link — it may have been mistyped.",
+      code: "NOT_FOUND",
+    };
+  }
+  if (invite.scope !== "LEAGUE" || !invite.leagueId || !invite.league) {
+    return {
+      ok: false,
+      error: "This invite isn't for a league. Reach out to the platform team if you got this by mistake.",
+      code: "WRONG_SCOPE",
+    };
+  }
+
+  const now = new Date();
+  if (invite.status === "REVOKED") {
+    return { ok: false, error: "This invite was revoked.", code: "EXHAUSTED" };
+  }
+  if (invite.status === "EXPIRED" || (invite.expiresAt && invite.expiresAt < now)) {
+    return {
+      ok: false,
+      error: "This invite has expired. Ask the platform team to reissue it.",
+      code: "EXPIRED",
+    };
+  }
+  if (invite.status === "EXHAUSTED" || invite.usedCount >= invite.maxUses) {
+    return { ok: false, error: "This invite has already been used.", code: "EXHAUSTED" };
+  }
+  if (
+    invite.intendedEmail &&
+    invite.intendedEmail.toLowerCase() !== user.email.toLowerCase()
+  ) {
+    return {
+      ok: false,
+      error: `This invite was issued to ${invite.intendedEmail}. Sign in with that email to claim it.`,
+      code: "EMAIL_MISMATCH",
+    };
+  }
+
+  const requestedRole = invite.rolesGranted.find((r) => VALID_LEAGUE_ROLES.has(r));
+  const role = (invite.grantsOwnership
+    ? "OWNER"
+    : requestedRole ?? "ADMIN") as "OWNER" | "ADMIN" | "STAFF";
+
+  const leagueId = invite.leagueId;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.leagueAdminship.upsert({
+      where: { leagueId_userId: { leagueId, userId: user.id } },
+      update: { role },
+      create: { leagueId, userId: user.id, role },
+    });
+
+    const newUsed = invite.usedCount + 1;
+    await tx.invite.update({
+      where: { id: invite.id },
+      data: {
+        usedCount: newUsed,
+        status: newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE",
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: user.id,
+        action: "INVITE.ACCEPT_LEAGUE",
+        entityType: "Invite",
+        entityId: invite.id,
+        before: { status: invite.status, usedCount: invite.usedCount },
+        after: {
+          status: newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE",
+          usedCount: newUsed,
+        },
+        metadata: { role, leagueId },
+        leagueId,
+      },
+    });
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/platform/leagues");
+  revalidatePostClaim();
+
+  return {
+    ok: true,
+    leagueId,
+    leagueName: invite.league.name,
+    role,
+  };
+}
+
 // --- createSchoolInvite ------------------------------------------------
 
 const CreateSchoolInviteInput = z.object({

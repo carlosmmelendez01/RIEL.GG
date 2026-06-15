@@ -75,10 +75,14 @@ export function LeagueAdminEmptyState({
   kind,
   leagueName,
   className,
+  actionSlot,
 }: {
   kind: Kind;
   leagueName?: string | null;
   className?: string;
+  /** When provided, replaces the default primary/secondary links (e.g. with a
+   *  client dialog trigger). */
+  actionSlot?: React.ReactNode;
 }) {
   const copy = COPY[kind];
   const Icon =
@@ -116,7 +120,9 @@ export function LeagueAdminEmptyState({
         <p className="max-w-md text-balance text-[13px] leading-relaxed text-muted-foreground">
           {copy.body}
         </p>
-        {(copy.primary || copy.secondary) && (
+        {actionSlot ? (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">{actionSlot}</div>
+        ) : (copy.primary || copy.secondary) ? (
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
             {copy.primary ? (
               <Link
@@ -137,7 +143,7 @@ export function LeagueAdminEmptyState({
               </Link>
             ) : null}
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

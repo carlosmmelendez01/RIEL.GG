@@ -16,6 +16,7 @@ import { Building2, GraduationCap, Mail, Users } from "lucide-react";
 
 import { AdminTopbar } from "@/components/admin/topbar";
 import { LeagueAdminEmptyState } from "@/components/admin/empty-state";
+import { InviteSchoolDialog } from "@/components/admin/invite-school-dialog";
 import { PendingApplicationsCard } from "@/components/admin/pending-applications-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -59,17 +60,24 @@ export default async function AdminSchoolsPage() {
 
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              School directory
-            </h2>
-            <p className="text-[12px] text-muted-foreground">
-              Schools join by applying at <span className="font-mono">/join</span> — approve
-              them in the queue above.
-            </p>
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                School directory
+              </h2>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Invite a school directly, or schools can apply at{" "}
+                <span className="font-mono">/join</span>.
+              </p>
+            </div>
+            {schools.length > 0 ? <InviteSchoolDialog leagueName={ctx.league.name} /> : null}
           </div>
 
           {schools.length === 0 ? (
-            <LeagueAdminEmptyState kind="no-schools" leagueName={ctx.league.name} />
+            <LeagueAdminEmptyState
+              kind="no-schools"
+              leagueName={ctx.league.name}
+              actionSlot={<InviteSchoolDialog leagueName={ctx.league.name} />}
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {schools.map((s) => (

@@ -1,25 +1,79 @@
+/**
+ * Platform → Leagues directory.
+ *
+ * Lists the REAL leagues in the database (previously this rendered mock data,
+ * which made freshly-provisioned leagues appear to "not save"). Each row shows
+ * the league, its owner (from the OWNER LeagueAdminship — "Invite pending" when
+ * nobody has claimed yet), school + season counts, and a link into the league.
+ */
+
 import Link from "next/link";
 import { ArrowRight, Mail, Plus, Search } from "lucide-react";
 
 import { PlatformTopbar } from "@/components/platform/topbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buttonVariants } from "@/components/ui/button";
-import { PLATFORM_LEAGUES, type PlatformLeague } from "@/lib/mock/platform";
+import { prisma } from "@/lib/db/prisma";
 import { cn } from "@/lib/utils";
 
-export default function PlatformLeaguesPage() {
-  const all = PLATFORM_LEAGUES;
-  const active = all.filter((l) => l.status === "ACTIVE");
-  const trial = all.filter((l) => l.status === "TRIAL");
-  const onboarding = all.filter((l) => l.status === "ONBOARDING");
+type LeagueRowData = {
+  id: string;
+  name: string;
+  slug: string;
+  classification: string;
+  primaryColor: string | null;
+  createdAt: Date;
+  schoolCount: number;
+  seasonCount: number;
+  owner: { name: string; email: string } | null;
+};
+
+async function loadLeagues(): Promise<LeagueRowData[]> {
+  const leagues = await prisma.league.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      classification: true,
+      primaryColor: true,
+      createdAt: true,
+      _count: { select: { memberships: true, seasons: true } },
+      adminships: {
+        where: { role: "OWNER" },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: { user: { select: { fullName: true, email: true } } },
+      },
+    },
+  });
+
+  return leagues.map((l) => ({
+    id: l.id,
+    name: l.name,
+    slug: l.slug,
+    classification: l.classification,
+    primaryColor: l.primaryColor,
+    createdAt: l.createdAt,
+    schoolCount: l._count.memberships,
+    seasonCount: l._count.seasons,
+    owner: l.adminships[0]
+      ? { name: l.adminships[0].user.fullName, email: l.adminships[0].user.email }
+      : null,
+  }));
+}
+
+export default async function PlatformLeaguesPage() {
+  const leagues = await loadLeagues();
+  const claimed = leagues.filter((l) => l.owner !== null).length;
+  const pending = leagues.length - claimed;
 
   return (
     <>
       <PlatformTopbar
         title="Leagues"
-        eyebrow={`${active.length} active · ${trial.length} trial · ${onboarding.length} onboarding`}
+        eyebrow={`${leagues.length} total · ${claimed} claimed · ${pending} invite pending`}
       />
 
       <main className="flex-1 space-y-6 px-6 py-6 md:px-8">
@@ -43,38 +97,18 @@ export default function PlatformLeaguesPage() {
           </Link>
         </div>
 
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList>
-            <TabsTrigger value="all">All ({all.length})</TabsTrigger>
-            <TabsTrigger value="active">Active ({active.length})</TabsTrigger>
-            <TabsTrigger value="trial">Trial ({trial.length})</TabsTrigger>
-            <TabsTrigger value="onboarding">Onboarding ({onboarding.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all" className="mt-4">
-            <LeagueTable items={all} />
-          </TabsContent>
-          <TabsContent value="active" className="mt-4">
-            <LeagueTable items={active} />
-          </TabsContent>
-          <TabsContent value="trial" className="mt-4">
-            <LeagueTable items={trial} />
-          </TabsContent>
-          <TabsContent value="onboarding" className="mt-4">
-            <LeagueTable items={onboarding} />
-          </TabsContent>
-        </Tabs>
+        <LeagueTable items={leagues} />
       </main>
     </>
   );
 }
 
-function LeagueTable({ items }: { items: PlatformLeague[] }) {
+function LeagueTable({ items }: { items: LeagueRowData[] }) {
   if (items.length === 0) {
     return (
       <Card className="border-border/60 bg-card/80">
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          No leagues here.
+          No leagues yet. Create one to get started.
         </CardContent>
       </Card>
     );
@@ -89,10 +123,9 @@ function LeagueTable({ items }: { items: PlatformLeague[] }) {
               <tr className="border-b border-border/60 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                 <th className="py-3 pl-4 text-left font-medium">League</th>
                 <th className="py-3 text-left font-medium">Owner</th>
-                <th className="py-3 text-left font-medium">Status</th>
+                <th className="py-3 text-left font-medium">Class</th>
                 <th className="py-3 text-right font-medium">Schools</th>
-                <th className="py-3 text-right font-medium">Players</th>
-                <th className="py-3 text-right font-medium">Wk matches</th>
+                <th className="py-3 text-right font-medium">Seasons</th>
                 <th className="py-3 text-right font-medium">Created</th>
                 <th className="py-3 pr-4 text-right font-medium">Actions</th>
               </tr>
@@ -109,14 +142,20 @@ function LeagueTable({ items }: { items: PlatformLeague[] }) {
   );
 }
 
-const STATUS_TONE = {
-  ACTIVE: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  TRIAL: "border-[color:var(--brand-purple)]/40 bg-[color:var(--brand-purple)]/10 text-[color:var(--brand-purple)]",
-  ONBOARDING: "border-[color:var(--brand-gold)]/40 bg-[color:var(--brand-gold)]/10 text-[color:var(--brand-gold)]",
-  PAUSED: "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-400",
-};
+function initials(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter((w) => /^[A-Za-z0-9]/.test(w))
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 4)
+      .toUpperCase() || "LG"
+  );
+}
 
-function LeagueRow({ league }: { league: PlatformLeague }) {
+function LeagueRow({ league }: { league: LeagueRowData }) {
+  const color = league.primaryColor ?? "#A31F34";
   return (
     <tr className="border-b border-border/30 transition-colors hover:bg-card">
       <td className="py-3 pl-4">
@@ -124,11 +163,9 @@ function LeagueRow({ league }: { league: PlatformLeague }) {
           <div
             aria-hidden
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[11px] font-bold tracking-tight text-white shadow-inner"
-            style={{
-              background: `linear-gradient(135deg, ${league.primaryColor} 0%, ${league.secondaryColor ?? league.primaryColor} 100%)`,
-            }}
+            style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}99 100%)` }}
           >
-            {league.shortName.slice(0, 4)}
+            {initials(league.name)}
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold">{league.name}</p>
@@ -137,37 +174,37 @@ function LeagueRow({ league }: { league: PlatformLeague }) {
         </div>
       </td>
       <td className="py-3">
-        <p className="text-[13px]">{league.ownerName}</p>
-        <a
-          href={`mailto:${league.ownerEmail}`}
-          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-        >
-          <Mail className="h-3 w-3" />
-          {league.ownerEmail}
-        </a>
+        {league.owner ? (
+          <>
+            <p className="text-[13px]">{league.owner.name}</p>
+            <a
+              href={`mailto:${league.owner.email}`}
+              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              <Mail className="h-3 w-3" />
+              {league.owner.email}
+            </a>
+          </>
+        ) : (
+          <span className="rounded-md border border-[color:var(--brand-gold)]/40 bg-[color:var(--brand-gold)]/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[color:var(--brand-gold)]">
+            Invite pending
+          </span>
+        )}
       </td>
-      <td className="py-3">
-        <span
-          className={cn(
-            "rounded-md border px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider",
-            STATUS_TONE[league.status],
-          )}
-        >
-          {league.status}
-        </span>
-        {league.trialEndsIn ? (
-          <p className="mt-0.5 text-[11px] text-[color:var(--brand-purple)]">Ends in {league.trialEndsIn}</p>
-        ) : null}
-      </td>
+      <td className="py-3 text-[12px] text-muted-foreground">{league.classification}</td>
       <td className="py-3 text-right font-mono tabular-nums">{league.schoolCount}</td>
-      <td className="py-3 text-right font-mono tabular-nums">{league.activePlayers}</td>
-      <td className="py-3 text-right font-mono tabular-nums">{league.matchesThisWeek}</td>
-      <td className="py-3 text-right text-[12px] text-muted-foreground">{league.createdAgo} ago</td>
+      <td className="py-3 text-right font-mono tabular-nums">{league.seasonCount}</td>
+      <td className="py-3 text-right text-[12px] text-muted-foreground">
+        {league.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+      </td>
       <td className="py-3 pr-4 text-right">
-        <button className={cn(buttonVariants({ variant: "ghost", size: "xs" }))}>
+        <Link
+          href={`/league/${league.slug}`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
           Open
           <ArrowRight className="ml-1 h-3 w-3" />
-        </button>
+        </Link>
       </td>
     </tr>
   );

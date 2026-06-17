@@ -48,21 +48,28 @@ Do these roughly in order. It's a chain: each step sets up the next.
    **Generate**. (It only works once at least 2 teams are approved.)
 4. **Review a match** — `All matches → open one`. Try the admin override
    actions (force score, mark disputed) and watch the audit trail update.
+5. **Review a no-show** — `All matches → Needs review`. If a match appears
+   there, open it and use the *No-show review* card to record a no-show
+   forfeit or mark it disputed.
 
 ### As a **Coach** (`rpatel@hse.k12.in.us`)
 
-5. **Register a team** — `Teams → open your League of Legends team →
+6. **Register a team** — `Teams → open your League of Legends team →
    Register for a competition`. Pick the admin's new competition.
-6. **Manage your roster** — add/remove players, invite someone to the school.
-7. **Report a score** — `Schedule → open a match → submit the final score`.
+7. **Manage your roster** — add/remove players, invite someone to the school.
+8. **Report a score** — `Schedule → open a match → submit the final score`.
    It moves to *Awaiting confirmation*.
-8. **Confirm a score** — sign in as the *opposing* coach (e.g.
+9. **Confirm a score** — sign in as the *opposing* coach (e.g.
    `jreed@nc.k12.in.us`) and confirm or dispute the score the other coach
    reported. This is the consensus flow — it needs both sides.
+10. **Try schedule filters** — `Schedule` now supports upcoming/past/all,
+   season filter, match date, and team/opponent search.
 
 ### Also worth trying
 - Apply as a brand-new school at **`/join`**, then approve it as the admin in
   `Schools`. (You'll get a claim link to share.)
+- As the league admin, publish a rule or match-day note in
+  `Resources`; as a coach, read it from `Dashboard → Resources`.
 - Toggle **light/dark mode** (top right).
 
 ---
@@ -74,8 +81,8 @@ please don't file them as bugs:
 
 - Messages / chat, Announcements
 - Brackets / playoffs, Divisions, Insights
-- Player profiles & the player-facing experience
-- Search bars and notifications
+- Player social profiles & the fuller player-facing experience
+- Notifications
 - The multi-tenant "Platform" admin
 
 ---

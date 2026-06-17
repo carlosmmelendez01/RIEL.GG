@@ -34,22 +34,31 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  schoolMemberships      SchoolMembership[]
-  teamMemberships        TeamMembership[]
-  rosterMemberships      RosterMembership[]
-  leagueAdminships       LeagueAdminship[]
-  invitesCreated         Invite[]             @relation("InviteCreator")
-  matchReports           MatchReport[]
-  matchMessages          MatchMessage[]
-  announcementsAuthored  Announcement[]
-  auditLogEntries        AuditLog[]
-  reviewedModuleStatus   RosterModuleStatus[] @relation("ModuleReviewer")
-  forfeitsRecorded       Match[]              @relation("ForfeitRecorder")
-  playerCommentsReceived PlayerComment[]      @relation("PlayerCommentReceived")
-  playerCommentsAuthored PlayerComment[]      @relation("PlayerCommentAuthored")
-  playerGoals            PlayerGoal[]         @relation("PlayerGoalOwner")
-  applicationsReviewed   SchoolApplication[]  @relation("ApplicationReviewer")
-  feedback               Feedback[]
+  schoolMemberships       SchoolMembership[]
+  teamMemberships         TeamMembership[]
+  rosterMemberships       RosterMembership[]
+  leagueAdminships        LeagueAdminship[]
+  invitesCreated          Invite[]              @relation("InviteCreator")
+  matchReports            MatchReport[]
+  matchMessages           MatchMessage[]
+  matchCheckIns           MatchCheckIn[]        @relation("CheckedInUser")
+  matchCheckInsRecorded   MatchCheckIn[]        @relation("CheckInRecorder")
+  announcementsAuthored   Announcement[]
+  auditLogEntries         AuditLog[]
+  reviewedModuleStatus    RosterModuleStatus[]  @relation("ModuleReviewer")
+  forfeitsRecorded        Match[]               @relation("ForfeitRecorder")
+  playerCommentsReceived  PlayerComment[]       @relation("PlayerCommentReceived")
+  playerCommentsAuthored  PlayerComment[]       @relation("PlayerCommentAuthored")
+  playerGoals             PlayerGoal[]          @relation("PlayerGoalOwner")
+  applicationsReviewed    SchoolApplication[]   @relation("ApplicationReviewer")
+  studentConsents         StudentConsent[]      @relation("StudentConsentSubject")
+  studentConsentsRecorded StudentConsent[]      @relation("StudentConsentRecorder")
+  studentDataRequests     StudentDataRequest[]  @relation("StudentDataSubject")
+  studentDataRequestsMade StudentDataRequest[]  @relation("StudentDataRequester")
+  agreementAcceptances    AgreementAcceptance[] @relation("AgreementAcceptedBy")
+  leagueResourcesAuthored LeagueResource[]      @relation("LeagueResourceAuthor")
+  leagueResourcesUpdated  LeagueResource[]      @relation("LeagueResourceUpdater")
+  feedback                Feedback[]
 }
 
 // ===========================================================================
@@ -63,22 +72,25 @@ enum ClassificationKind {
 }
 
 model League {
-  id             String             @id @default(cuid())
-  name           String
-  slug           String             @unique
-  description    String?
-  logoUrl        String?
-  primaryColor   String?
-  classification ClassificationKind @default(SCHOLASTIC)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  name            String
+  slug            String             @unique
+  description     String?
+  logoUrl         String?
+  primaryColor    String?
+  classification  ClassificationKind @default(SCHOLASTIC)
+  schoolDivisions Json? // ordered [{ value, label, description? }] configuration
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  memberships   LeagueMembership[]
-  adminships    LeagueAdminship[]
-  seasons       Season[]
-  invites       Invite[]
-  announcements Announcement[]
-  applications  SchoolApplication[]
+  memberships          LeagueMembership[]
+  adminships           LeagueAdminship[]
+  seasons              Season[]
+  invites              Invite[]
+  announcements        Announcement[]
+  applications         SchoolApplication[]
+  agreementAcceptances AgreementAcceptance[]
+  resources            LeagueResource[]
 }
 
 enum LeagueRole {
@@ -113,6 +125,7 @@ model LeagueMembership {
   school              School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   status              MembershipStatus @default(PENDING)
   displayNameOverride String? // league-scoped name override per their docs
+  division            String? // league-scoped school division, e.g. IEN A / AA / Middle School / Unified
   joinedAt            DateTime         @default(now())
 
   @@unique([leagueId, schoolId])
@@ -136,11 +149,14 @@ model School {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  memberships       SchoolMembership[]
-  teams             Team[]
-  leagueMemberships LeagueMembership[]
-  invites           Invite[]
-  applications      SchoolApplication[]
+  memberships          SchoolMembership[]
+  teams                Team[]
+  leagueMemberships    LeagueMembership[]
+  invites              Invite[]
+  applications         SchoolApplication[]
+  studentConsents      StudentConsent[]
+  studentDataRequests  StudentDataRequest[]
+  agreementAcceptances AgreementAcceptance[]
 }
 
 enum SchoolRole {
@@ -162,6 +178,130 @@ model SchoolMembership {
 
   @@unique([schoolId, userId])
   @@index([userId])
+}
+
+// ===========================================================================
+// STUDENT PRIVACY + CONSENT — FERPA/COPPA Gate 1
+// ---------------------------------------------------------------------------
+// Consent is tracked per student per school. School consent is allowed only
+// for school-controlled educational use; parental consent is tracked separately
+// when a league/school requires it for under-13 students or expanded features.
+// ===========================================================================
+
+enum StudentAgeBand {
+  UNKNOWN
+  UNDER_13
+  AGE_13_TO_17
+  AGE_18_PLUS
+}
+
+enum StudentConsentStatus {
+  PENDING
+  SCHOOL_AUTHORIZED
+  PARENT_AUTHORIZED
+  NOT_REQUIRED
+  REVOKED
+  EXPIRED
+}
+
+model StudentConsent {
+  id             String               @id @default(cuid())
+  studentUserId  String
+  student        User                 @relation("StudentConsentSubject", fields: [studentUserId], references: [id], onDelete: Cascade)
+  schoolId       String
+  school         School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  status         StudentConsentStatus @default(PENDING)
+  ageBand        StudentAgeBand       @default(UNKNOWN)
+  basis          String?
+  recorderUserId String?
+  recorder       User?                @relation("StudentConsentRecorder", fields: [recorderUserId], references: [id], onDelete: SetNull)
+  recorderName   String?
+  notes          String?
+  effectiveAt    DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([studentUserId, schoolId])
+  @@index([schoolId, status])
+  @@index([studentUserId, status])
+}
+
+enum StudentDataRequestType {
+  EXPORT
+  DELETE
+}
+
+enum StudentDataRequestStatus {
+  OPEN
+  IN_REVIEW
+  COMPLETED
+  CANCELED
+}
+
+model StudentDataRequest {
+  id            String                   @id @default(cuid())
+  schoolId      String
+  school        School                   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subjectUserId String
+  subject       User                     @relation("StudentDataSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  requestedById String?
+  requestedBy   User?                    @relation("StudentDataRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  type          StudentDataRequestType
+  status        StudentDataRequestStatus @default(OPEN)
+  reason        String?
+  notes         String?
+  completedAt   DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  @@index([schoolId, status, createdAt])
+  @@index([subjectUserId, createdAt])
+}
+
+// ===========================================================================
+// AGREEMENT ACCEPTANCE — league/school compliance paper trail
+// ---------------------------------------------------------------------------
+// These rows record who accepted the current legal/compliance terms, what
+// authority they claimed, and which agreement version they accepted.
+// ===========================================================================
+
+enum AgreementType {
+  LEAGUE_OPERATOR
+  SCHOOL_PARTICIPATION
+}
+
+enum AgreementCoverageSource {
+  DIRECT_SCHOOL_AUTHORIZATION
+  LEAGUE_MASTER_AGREEMENT
+  PARENT_GUARDIAN_REQUIRED
+}
+
+model AgreementAcceptance {
+  id             String                   @id @default(cuid())
+  type           AgreementType
+  version        String
+  leagueId       String?
+  league         League?                  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  schoolId       String?
+  school         School?                  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  acceptedById   String?
+  acceptedBy     User?                    @relation("AgreementAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
+  signerName     String
+  signerTitle    String
+  signerEmail    String
+  coverageSource AgreementCoverageSource?
+  ipAddress      String?
+  userAgent      String?
+  attestations   Json
+  createdAt      DateTime                 @default(now())
+  revokedAt      DateTime?
+  supersededAt   DateTime?
+
+  @@index([leagueId, type, version, createdAt])
+  @@index([schoolId, type, version, createdAt])
+  @@index([acceptedById, createdAt])
 }
 
 // ===========================================================================
@@ -278,6 +418,7 @@ model GameTitle {
   formats      GameFormat[]
   competitions Competition[]
   teams        Team[]
+  resources    LeagueResource[]
 }
 
 model GameFormat {
@@ -377,6 +518,7 @@ model Season {
 
   competitions Competition[]
   playerGoals  PlayerGoal[]
+  resources    LeagueResource[]
 }
 
 enum CompetitionKind {
@@ -426,6 +568,7 @@ model Competition {
   stages              Stage[]
   rosters             Roster[]
   registrationModules RegistrationModule[]
+  resources           LeagueResource[]
 
   @@index([seasonId])
   @@index([gameTitleId, skillTier])
@@ -601,6 +744,7 @@ model Roster {
   awayMatches  Match[]              @relation("AwayRoster")
   wonMatches   Match[]              @relation("WinnerRoster")
   standings    StageStanding[]
+  checkIns     MatchCheckIn[]
 
   @@unique([teamId, competitionId])
   @@index([competitionId, registrationStatus])
@@ -629,6 +773,7 @@ model RosterMembership {
 
   appearances GameAppearance[]
   reportedBy  MatchReport[]    @relation("ReportingMember")
+  checkIns    MatchCheckIn[]
 
   @@unique([rosterId, userId])
   @@index([userId])
@@ -752,6 +897,7 @@ model Match {
   games          Game[]
   reports        MatchReport[]
   messages       MatchMessage[]
+  checkIns       MatchCheckIn[]
   playerComments PlayerComment[]
 
   @@index([scheduledAt])
@@ -759,6 +905,27 @@ model Match {
   @@index([stageId])
   @@index([isForfeit])
   @@index([isForfeit, forfeitedAt]) // for the "recent forfeits" feed on Board
+}
+
+model MatchCheckIn {
+  id                 String           @id @default(cuid())
+  matchId            String
+  match              Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  rosterId           String
+  roster             Roster           @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  rosterMembershipId String
+  rosterMembership   RosterMembership @relation(fields: [rosterMembershipId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User             @relation("CheckedInUser", fields: [userId], references: [id], onDelete: Cascade)
+  side               MatchSide
+  checkedInById      String?
+  checkedInBy        User?            @relation("CheckInRecorder", fields: [checkedInById], references: [id], onDelete: SetNull)
+  createdAt          DateTime         @default(now())
+
+  @@unique([matchId, rosterMembershipId])
+  @@index([matchId, side])
+  @@index([rosterId])
+  @@index([userId])
 }
 
 model Game {
@@ -874,6 +1041,59 @@ model StageStanding {
 
   @@unique([stageId, rosterId])
   @@index([stageId, rank])
+}
+
+// ===========================================================================
+// LEAGUE RESOURCES — rules, lobby setup, and evergreen operating docs
+// ===========================================================================
+
+enum LeagueResourceCategory {
+  GENERAL_RULES
+  GAME_RULES
+  MATCH_DAY
+  LOBBY_SETUP
+  ELIGIBILITY
+  COMPLIANCE
+  OTHER
+}
+
+enum LeagueResourceAudience {
+  ALL
+  COACHES
+  PLAYERS
+  STAFF
+}
+
+model LeagueResource {
+  id            String                 @id @default(cuid())
+  leagueId      String
+  league        League                 @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  title         String
+  summary       String?
+  body          String
+  url           String?
+  category      LeagueResourceCategory @default(GENERAL_RULES)
+  audience      LeagueResourceAudience @default(ALL)
+  gameTitleId   String?
+  gameTitle     GameTitle?             @relation(fields: [gameTitleId], references: [id], onDelete: SetNull)
+  seasonId      String?
+  season        Season?                @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  competitionId String?
+  competition   Competition?           @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  pinned        Boolean                @default(false)
+  published     Boolean                @default(true)
+  createdById   String
+  createdBy     User                   @relation("LeagueResourceAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById   String?
+  updatedBy     User?                  @relation("LeagueResourceUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([leagueId, published, pinned, updatedAt])
+  @@index([leagueId, category])
+  @@index([leagueId, gameTitleId])
+  @@index([seasonId])
+  @@index([competitionId])
 }
 
 // ===========================================================================

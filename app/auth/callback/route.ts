@@ -12,6 +12,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPrimaryLanding } from "@/lib/auth/landing";
+import { safeInternalPath } from "@/lib/security/redirect";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -40,7 +41,8 @@ export async function GET(request: NextRequest) {
 
   // Prefer an explicit ?next= override (e.g., from a deep-link). Otherwise
   // route by role: admin → /admin, coach → /dashboard, player → /me.
-  const next = explicitNext ?? (user ? await getPrimaryLanding(user.id, user.email) : "/me");
+  const defaultNext = user ? await getPrimaryLanding(user.id, user.email) : "/me";
+  const next = safeInternalPath(explicitNext, defaultNext);
 
   return NextResponse.redirect(new URL(next, request.url));
 }

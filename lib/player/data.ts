@@ -31,6 +31,11 @@ export type PlayerMatchRow = {
   theirScore: number | null;
   result: "WIN" | "LOSS" | "FORFEIT_BY_US" | "FORFEIT_BY_THEM" | "PENDING";
   isForfeit: boolean;
+  rosterMembershipId: string | null;
+  checkedIn: boolean;
+  ownCheckedInCount: number;
+  opponentCheckedInCount: number;
+  canCheckInTeam: boolean;
   opponentTeamName: string;
   opponentSchool: string;
   competitionName: string;
@@ -156,6 +161,7 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
 
   const rosterIds = memberships.map((m) => m.rosterId);
   const memberRosterIds = new Set(rosterIds);
+  const membershipByRoster = new Map(memberships.map((m) => [m.rosterId, m]));
 
   // Pull match history — finished within last 60d OR scheduled within next 30d
   const matchesRaw = rosterIds.length === 0
@@ -170,6 +176,7 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
             OR: [
               { finishedAt: { gte: T_PAST } },
               { scheduledAt: { gte: now, lte: T_FUTURE } },
+              { status: { in: ["CHECKING_IN", "IN_PROGRESS", "AWAITING_CONFIRMATION"] } },
             ],
           },
         },
@@ -217,6 +224,12 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
               },
             },
           },
+          checkIns: {
+            select: {
+              rosterId: true,
+              rosterMembershipId: true,
+            },
+          },
         },
       });
 
@@ -224,6 +237,9 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
   const matches: PlayerMatchRow[] = matchesRaw.map((m) => {
     const isHome = memberRosterIds.has(m.homeRosterId);
     const side: PlayerSide = isHome ? "HOME" : "AWAY";
+    const ownRosterId = isHome ? m.homeRosterId : m.awayRosterId;
+    const opponentRosterId = isHome ? m.awayRosterId : m.homeRosterId;
+    const membership = membershipByRoster.get(ownRosterId) ?? null;
     const ourScore = isHome ? m.homeScore : m.awayScore;
     const theirScore = isHome ? m.awayScore : m.homeScore;
     const opponent = isHome ? m.awayRoster?.team : m.homeRoster?.team;
@@ -250,6 +266,14 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
       theirScore: theirScore ?? null,
       result,
       isForfeit: m.isForfeit,
+      rosterMembershipId: membership?.id ?? null,
+      checkedIn: membership
+        ? m.checkIns.some((checkIn) => checkIn.rosterMembershipId === membership.id)
+        : false,
+      ownCheckedInCount: m.checkIns.filter((checkIn) => checkIn.rosterId === ownRosterId).length,
+      opponentCheckedInCount: m.checkIns.filter((checkIn) => checkIn.rosterId === opponentRosterId).length,
+      canCheckInTeam:
+        membership?.role === "MANAGER" || membership?.role === "COACH" || membership?.role === "CAPTAIN",
       opponentTeamName: teamLabel(opponent),
       opponentSchool: opponent?.school.shortName ?? opponent?.school.name ?? "—",
       competitionName: m.stage.competition.name.replace(/^Spring 2026 — /, ""),
@@ -260,7 +284,14 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
 
   // Split upcoming vs finished
   const upcoming = matches
-    .filter((m) => m.result === "PENDING" && m.scheduledAt > now)
+    .filter(
+      (m) =>
+        m.result === "PENDING" &&
+        (m.scheduledAt > now ||
+          m.status === "CHECKING_IN" ||
+          m.status === "IN_PROGRESS" ||
+          m.status === "AWAITING_CONFIRMATION"),
+    )
     .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
   const finished = matches

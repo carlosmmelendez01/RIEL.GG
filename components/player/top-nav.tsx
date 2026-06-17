@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Bell, ChevronDown, Compass, Flame, Home, MessageCircle, Plus, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -89,16 +88,18 @@ export function TopNav({ winStreak }: { winStreak: number }) {
           </div>
 
           {/* User avatar dropdown trigger */}
-          <Link
-            href="/auth/sign-out"
-            className="ml-1 inline-flex items-center gap-1 rounded-full border border-border/60 bg-card/60 p-1 pr-2 transition-colors hover:bg-card"
-            aria-label={viewer ? `Signed in as ${viewer.name}` : "Account"}
-          >
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[color:var(--brand-crimson)] to-rose-700 text-[10px] font-semibold tracking-tight text-white">
-              {viewer?.initials ?? "??"}
-            </div>
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          </Link>
+          <form action="/auth/sign-out" method="post">
+            <button
+              type="submit"
+              className="ml-1 inline-flex items-center gap-1 rounded-full border border-border/60 bg-card/60 p-1 pr-2 transition-colors hover:bg-card"
+              aria-label={viewer ? `Sign out ${viewer.name}` : "Sign out"}
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[color:var(--brand-crimson)] to-rose-700 text-[10px] font-semibold tracking-tight text-white">
+                {viewer?.initials ?? "??"}
+              </div>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </form>
         </div>
       </div>
     </header>

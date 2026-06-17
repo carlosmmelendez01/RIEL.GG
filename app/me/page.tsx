@@ -13,19 +13,26 @@
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Crown, Trophy, UserRound, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, Crown, LockKeyhole, Trophy, UserRound, Users } from "lucide-react";
 
 import { RielIcon } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MatchCheckInButton } from "@/components/match/match-check-in-button";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { loadStudentConsentGate, type ConsentGateSchool } from "@/lib/compliance/consent";
 import { loadPlayerProfile, type PlayerMatchRow } from "@/lib/player/data";
 import { cn } from "@/lib/utils";
 
 export default async function PlayerHomePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/me");
+
+  const consentGate = await loadStudentConsentGate(user.id);
+  if (consentGate.blocked) {
+    return <ConsentRequiredState fullName={user.fullName} schools={consentGate.schools} />;
+  }
 
   const profile = await loadPlayerProfile(user.id);
   if (!profile) redirect("/login");
@@ -203,9 +210,27 @@ function MatchRow({ m, upcoming }: { m: PlayerMatchRow; upcoming?: boolean }) {
         </p>
       </div>
       {upcoming ? (
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          {m.scheduledAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-        </span>
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="text-right">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              {m.status === "IN_PROGRESS"
+                ? "Live"
+                : m.status === "CHECKING_IN"
+                  ? "Checking in"
+                  : m.scheduledAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              {m.ownCheckedInCount} us · {m.opponentCheckedInCount} them
+            </p>
+          </div>
+          <MatchCheckInButton
+            matchId={m.matchId}
+            rosterMembershipIds={m.rosterMembershipId ? [m.rosterMembershipId] : undefined}
+            checkedIn={m.checkedIn}
+            disabled={!m.rosterMembershipId}
+            label="Check in"
+          />
+        </div>
       ) : m.ourScore !== null && m.theirScore !== null ? (
         <span
           className={cn(
@@ -236,6 +261,53 @@ function NoTeamsState({ fullName }: { fullName: string }) {
         You&apos;re not on a team roster yet. Once your coach adds you to a roster, your matches and
         stats will live here.
       </p>
+      <Link
+        href="/login"
+        className="mt-6 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+      >
+        Use a different account
+        <ArrowRight className="h-3 w-3" />
+      </Link>
+    </div>
+  );
+}
+
+function ConsentRequiredState({
+  fullName,
+  schools,
+}: {
+  fullName: string;
+  schools: ConsentGateSchool[];
+}) {
+  return (
+    <div className="mx-auto flex max-w-xl flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[color:var(--brand-gold)]/30 bg-[color:var(--brand-gold)]/10 text-[color:var(--brand-gold)]">
+        <LockKeyhole className="h-7 w-7" />
+      </div>
+      <h1 className="mt-5 text-balance text-2xl font-semibold tracking-tight">
+        Consent required before player access, {fullName.split(" ")[0]}
+      </h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Your school needs to record FERPA/COPPA authorization before RIEL.GG can show player
+        surfaces or enable match participation actions for your account.
+      </p>
+      <div className="mt-5 w-full space-y-2 text-left">
+        {schools.map((school) => (
+          <div
+            key={school.schoolId}
+            className="rounded-lg border border-border/60 bg-card/60 p-3 text-[12px]"
+          >
+            <p className="font-semibold">{school.schoolName}</p>
+            <p className="mt-1 text-muted-foreground">
+              Status:{" "}
+              <span className="font-mono uppercase">
+                {(school.status ?? "missing").toLowerCase().replace(/_/g, " ")}
+              </span>
+              {school.ageBand ? ` · ${school.ageBand.toLowerCase().replace(/_/g, " ")}` : ""}
+            </p>
+          </div>
+        ))}
+      </div>
       <Link
         href="/login"
         className="mt-6 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"

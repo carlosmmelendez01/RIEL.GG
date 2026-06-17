@@ -121,10 +121,15 @@ export function ModeSwitcher({ current, viewer }: { current: ModeKind; viewer: V
             <Settings className="mr-2 h-3.5 w-3.5" />
             Settings
           </DropdownMenuItem>
-          <DropdownMenuItem className="text-[13px]" render={<Link href="/auth/sign-out" />}>
-            <LogOut className="mr-2 h-3.5 w-3.5" />
-            Sign out
-          </DropdownMenuItem>
+          <form action="/auth/sign-out" method="post">
+            <DropdownMenuItem
+              className="w-full text-[13px]"
+              render={<button type="submit" />}
+            >
+              <LogOut className="mr-2 h-3.5 w-3.5" />
+              Sign out
+            </DropdownMenuItem>
+          </form>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

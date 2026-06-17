@@ -95,7 +95,7 @@ export default async function LeagueHealthPage() {
                   matches.
                 </>
               ) : (
-                <>The league is running clean — zero forfeits this period.</>
+                <>{ctx.league.name} is running clean — zero forfeits this period.</>
               )}
             </h2>
           </div>

@@ -1,0 +1,13 @@
+export const FORFEIT_REASONS = [
+  "OPPONENT_NO_SHOW",
+  "SCHEDULING_CONFLICT",
+  "INSUFFICIENT_ROSTER",
+  "TECHNICAL_ISSUES",
+  "PLAYER_ILLNESS",
+  "ELIGIBILITY_ISSUE",
+  "WEATHER_TRAVEL",
+  "OPPONENT_CONDUCT",
+  "OTHER",
+] as const;
+
+export type ForfeitReasonValue = (typeof FORFEIT_REASONS)[number];

@@ -41,6 +41,7 @@ const GAMES = SUPPORTED_GAMES.map((g) => ({
   publisher: g.publisher,
   formats: g.formats,
 }));
+const DEFAULT_SELECTED_GAME_IDS = GAMES.slice(0, 4).map((g) => g.id);
 
 const STEPS = [
   { id: 1, label: "Identity", icon: ClipboardList },
@@ -103,7 +104,9 @@ export default function CreateLeaguePage() {
   const [secondaryColor, setSecondaryColor] = useState(COLOR_PRESETS[0].secondary);
 
   // Games (selection of game ids)
-  const [selectedGames, setSelectedGames] = useState<string[]>(["lol", "val", "rl", "smash"]);
+  const [selectedGames, setSelectedGames] = useState<string[]>(() => [
+    ...DEFAULT_SELECTED_GAME_IDS,
+  ]);
 
   // Owner
   const [ownerName, setOwnerName] = useState("");

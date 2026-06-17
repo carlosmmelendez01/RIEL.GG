@@ -5,6 +5,7 @@ import { BetaBadge } from "@/components/brand/beta-badge";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { demoAuthEnabled } from "@/lib/auth/demo";
 
 const NAV = [
   { label: "Leagues", href: "#leagues" },
@@ -15,6 +16,8 @@ const NAV = [
 ];
 
 export function SiteHeader() {
+  const demoOn = demoAuthEnabled();
+
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
@@ -37,7 +40,7 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle variant="subtle" />
-          {process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === "true" ? (
+          {demoOn ? (
             <Link
               href="/dev"
               className={cn(

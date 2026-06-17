@@ -57,6 +57,7 @@ export default async function AdminMatchesPage() {
   }
 
   // Bucket by status for the tabs
+  const review = matches.filter((m) => m.checkInReview.needsReview);
   const live = matches.filter(
     (m) => m.status === "IN_PROGRESS" || m.status === "CHECKING_IN",
   );
@@ -78,10 +79,20 @@ export default async function AdminMatchesPage() {
         {/* Status tabs */}
         <Tabs
           defaultValue={
-            live.length > 0 ? "live" : disputed.length > 0 ? "disputed" : "upcoming"
+            review.length > 0
+              ? "review"
+              : live.length > 0
+                ? "live"
+                : disputed.length > 0
+                  ? "disputed"
+                  : "upcoming"
           }
         >
           <TabsList className="mb-4 flex flex-wrap">
+            <TabsTrigger value="review">
+              Needs review
+              {review.length > 0 ? <Badge tone="orange">{review.length}</Badge> : null}
+            </TabsTrigger>
             <TabsTrigger value="live">
               Live
               {live.length > 0 ? <Badge tone="emerald">{live.length}</Badge> : null}
@@ -105,6 +116,9 @@ export default async function AdminMatchesPage() {
             <TabsTrigger value="all">All ({matches.length})</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="review">
+            <MatchList matches={review} emptyMessage="No no-show check-in reviews open." />
+          </TabsContent>
           <TabsContent value="live">
             <MatchList matches={live} emptyMessage="No matches live right now." />
           </TabsContent>
@@ -212,6 +226,12 @@ function MatchListRow({ match }: { match: LeagueMatchRow }) {
                 Disputed
               </span>
             ) : null}
+            {match.checkInReview.needsReview ? (
+              <span className="ml-2 inline-flex items-center gap-0.5 rounded-sm border border-orange-500/40 bg-orange-500/10 px-1 py-0 text-[9px] font-semibold uppercase tracking-wider text-orange-500">
+                <CircleAlert className="h-2.5 w-2.5" />
+                {checkInReviewLabel(match)}
+              </span>
+            ) : null}
           </p>
           <p className="text-[11px] text-muted-foreground">
             {match.scheduledAt.toLocaleTimeString("en-US", {
@@ -243,7 +263,7 @@ function Badge({
   tone = "default",
 }: {
   children: React.ReactNode;
-  tone?: "default" | "crimson" | "emerald" | "gold" | "muted";
+  tone?: "default" | "crimson" | "emerald" | "gold" | "muted" | "orange";
 }) {
   return (
     <span
@@ -252,6 +272,7 @@ function Badge({
         tone === "crimson" && "bg-[color:var(--brand-crimson)] text-white",
         tone === "emerald" && "bg-emerald-500 text-black",
         tone === "gold" && "bg-[color:var(--brand-gold)] text-black",
+        tone === "orange" && "bg-orange-500 text-black",
         tone === "muted" && "bg-muted text-muted-foreground",
         tone === "default" && "bg-card border border-border/60 text-foreground",
       )}
@@ -259,4 +280,15 @@ function Badge({
       {children}
     </span>
   );
+}
+
+function checkInReviewLabel(match: LeagueMatchRow): string {
+  switch (match.checkInReview.suggestedForfeitingSide) {
+    case "HOME":
+      return "Home no-show";
+    case "AWAY":
+      return "Away no-show";
+    default:
+      return "No check-ins";
+  }
 }

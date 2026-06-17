@@ -21,6 +21,7 @@ import {
   SchoolInviteCreated,
   schoolInviteCreatedText,
 } from "@/lib/email/templates/school-invite-created";
+import { loadSchoolAgreementStatus } from "@/lib/compliance/agreements";
 import { generateInviteCode } from "@/lib/invite/helpers";
 
 // --- Shared helpers ----------------------------------------------------
@@ -53,6 +54,11 @@ async function loadSchoolCoach(userId: string, schoolId: string) {
   if (!m) return null;
   if (m.role !== "COACH" && m.role !== "MANAGER") return null;
   return m;
+}
+
+async function schoolAgreementAccepted(schoolId: string) {
+  const status = await loadSchoolAgreementStatus(schoolId);
+  return status.accepted;
 }
 
 // --- acceptSchoolInvite ------------------------------------------------
@@ -161,7 +167,32 @@ export async function acceptSchoolInvite(input: {
 
   const schoolId = invite.schoolId;
 
-  await prisma.$transaction(async (tx) => {
+  const claim = await prisma.$transaction(async (tx) => {
+    const reserved = await tx.invite.updateMany({
+      where: {
+        id: invite.id,
+        status: "ACTIVE",
+        usedCount: { lt: invite.maxUses },
+        OR: [{ expiresAt: null }, { expiresAt: { gte: now } }],
+      },
+      data: { usedCount: { increment: 1 } },
+    });
+    if (reserved.count !== 1) return null;
+
+    const claimedInvite = await tx.invite.findUniqueOrThrow({
+      where: { id: invite.id },
+      select: { usedCount: true },
+    });
+    const newUsed = claimedInvite.usedCount;
+    const newStatus = newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE";
+
+    if (newStatus === "EXHAUSTED") {
+      await tx.invite.update({
+        where: { id: invite.id },
+        data: { status: "EXHAUSTED" },
+      });
+    }
+
     await tx.schoolMembership.upsert({
       where: { schoolId_userId: { schoolId, userId: user.id } },
       update: { role, isOwner: isOwner || undefined, detached: false },
@@ -173,31 +204,32 @@ export async function acceptSchoolInvite(input: {
       },
     });
 
-    const newUsed = invite.usedCount + 1;
-    await tx.invite.update({
-      where: { id: invite.id },
-      data: {
-        usedCount: newUsed,
-        status: newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE",
-      },
-    });
-
     await tx.auditLog.create({
       data: {
         actorUserId: user.id,
         action: "INVITE.ACCEPT_SCHOOL",
         entityType: "Invite",
         entityId: invite.id,
-        before: { status: invite.status, usedCount: invite.usedCount },
+        before: { status: "ACTIVE", usedCount: newUsed - 1 },
         after: {
-          status: newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE",
+          status: newStatus,
           usedCount: newUsed,
         },
         metadata: { role, isOwner, schoolId },
         schoolId,
       },
     });
+
+    return { usedCount: newUsed, status: newStatus };
   });
+
+  if (!claim) {
+    return {
+      ok: false,
+      error: "This invite has already been used or expired.",
+      code: "EXHAUSTED",
+    };
+  }
 
   revalidatePostClaim();
   return {
@@ -313,20 +345,36 @@ export async function acceptLeagueInvite(input: {
 
   const leagueId = invite.leagueId;
 
-  await prisma.$transaction(async (tx) => {
+  const claim = await prisma.$transaction(async (tx) => {
+    const reserved = await tx.invite.updateMany({
+      where: {
+        id: invite.id,
+        status: "ACTIVE",
+        usedCount: { lt: invite.maxUses },
+        OR: [{ expiresAt: null }, { expiresAt: { gte: now } }],
+      },
+      data: { usedCount: { increment: 1 } },
+    });
+    if (reserved.count !== 1) return null;
+
+    const claimedInvite = await tx.invite.findUniqueOrThrow({
+      where: { id: invite.id },
+      select: { usedCount: true },
+    });
+    const newUsed = claimedInvite.usedCount;
+    const newStatus = newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE";
+
+    if (newStatus === "EXHAUSTED") {
+      await tx.invite.update({
+        where: { id: invite.id },
+        data: { status: "EXHAUSTED" },
+      });
+    }
+
     await tx.leagueAdminship.upsert({
       where: { leagueId_userId: { leagueId, userId: user.id } },
       update: { role },
       create: { leagueId, userId: user.id, role },
-    });
-
-    const newUsed = invite.usedCount + 1;
-    await tx.invite.update({
-      where: { id: invite.id },
-      data: {
-        usedCount: newUsed,
-        status: newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE",
-      },
     });
 
     await tx.auditLog.create({
@@ -335,16 +383,26 @@ export async function acceptLeagueInvite(input: {
         action: "INVITE.ACCEPT_LEAGUE",
         entityType: "Invite",
         entityId: invite.id,
-        before: { status: invite.status, usedCount: invite.usedCount },
+        before: { status: "ACTIVE", usedCount: newUsed - 1 },
         after: {
-          status: newUsed >= invite.maxUses ? "EXHAUSTED" : "ACTIVE",
+          status: newStatus,
           usedCount: newUsed,
         },
         metadata: { role, leagueId },
         leagueId,
       },
     });
+
+    return { usedCount: newUsed, status: newStatus };
   });
+
+  if (!claim) {
+    return {
+      ok: false,
+      error: "This invite has already been used or expired.",
+      code: "EXHAUSTED",
+    };
+  }
 
   revalidatePath("/admin");
   revalidatePath("/platform/leagues");
@@ -418,6 +476,12 @@ export async function createSchoolInvite(
       error: "Only the school's coach or manager can issue invites.",
     };
   }
+  if (!(await schoolAgreementAccepted(data.schoolId))) {
+    return {
+      ok: false,
+      error: "A school manager must accept the school agreement before issuing invites.",
+    };
+  }
 
   // Role authority gate
   if (data.role === "MANAGER" && me.role !== "MANAGER") {
@@ -430,6 +494,29 @@ export async function createSchoolInvite(
     return {
       ok: false,
       error: "Only school managers can pass ownership.",
+    };
+  }
+  if (data.grantsOwnership && data.role !== "MANAGER") {
+    return {
+      ok: false,
+      error: "Ownership can only be granted with a manager invite.",
+      fieldErrors: { role: "Choose the manager role when passing ownership." },
+    };
+  }
+
+  const privilegedInvite = data.role !== "PLAYER" || data.grantsOwnership;
+  if (privilegedInvite && !data.intendedEmail) {
+    return {
+      ok: false,
+      error: "Coach, manager, and ownership invites must be locked to one email address.",
+      fieldErrors: { intendedEmail: "An email is required for privileged invites." },
+    };
+  }
+  if (privilegedInvite && data.maxUses !== 1) {
+    return {
+      ok: false,
+      error: "Privileged invites must be single-use.",
+      fieldErrors: { maxUses: "Use one claim for privileged invites." },
     };
   }
 
@@ -566,6 +653,12 @@ export async function revokeSchoolInvite(input: {
     return {
       ok: false,
       error: "Only the school's coach or manager can revoke invites.",
+    };
+  }
+  if (!(await schoolAgreementAccepted(invite.schoolId))) {
+    return {
+      ok: false,
+      error: "A school manager must accept the school agreement before managing invites.",
     };
   }
   // Don't let COACHes revoke MANAGER invites

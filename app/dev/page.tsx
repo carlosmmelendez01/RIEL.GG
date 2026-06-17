@@ -5,8 +5,8 @@
  * with one click — no email needed. Uses the service-role key to apply a
  * known demo password and write a real session (see /dev/sign-in route).
  *
- * Gated by ENABLE_DEMO_AUTH (not NODE_ENV), so it works on a deployed beta
- * when the flag is on. Returns 404 when the flag is off.
+ * Local-development only. Returns 404 in production or when the allowlist,
+ * password, and service-role key are not configured.
  */
 
 import { notFound } from "next/navigation";
@@ -24,6 +24,7 @@ import type { LucideIcon } from "lucide-react";
 import { RielLockup } from "@/components/brand/logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/db/prisma";
+import { demoAuthEnabled } from "@/lib/auth/demo";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
@@ -44,9 +45,10 @@ const FEATURED_EMAILS = new Set([
 ]);
 
 export default async function DemoSignInIndex() {
-  if (!env.ENABLE_DEMO_AUTH) notFound();
+  if (!demoAuthEnabled()) notFound();
 
   const users = await prisma.user.findMany({
+    where: { email: { in: env.DEMO_AUTH_EMAILS } },
     orderBy: { fullName: "asc" },
     include: {
       schoolMemberships: { include: { school: true } },
@@ -171,8 +173,7 @@ export default async function DemoSignInIndex() {
             <div className="text-[12px] text-muted-foreground">
               <p className="font-semibold text-foreground">This is real data.</p>
               <p className="mt-1">
-                Demo accounts act on the live database — applications you approve, rosters you
-                build, and scores you report all persist. Real magic-link sign-in lives at{" "}
+                Demo accounts act on your local database. Real magic-link sign-in lives at{" "}
                 <Link href="/login" className="underline hover:text-foreground">
                   /login
                 </Link>

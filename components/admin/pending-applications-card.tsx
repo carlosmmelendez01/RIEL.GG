@@ -36,11 +36,14 @@ import {
   type RejectApplicationResult,
 } from "@/lib/school/application-actions";
 import type { PendingApplicationRow } from "@/lib/league-admin/dashboard";
+import type { LeagueDivisionOption } from "@/lib/league/divisions";
 
 export function PendingApplicationsCard({
   applications,
+  divisionOptions = [],
 }: {
   applications: PendingApplicationRow[];
+  divisionOptions?: LeagueDivisionOption[];
 }) {
   return (
     <Card className="border-[color:var(--brand-gold)]/30 bg-card/60">
@@ -70,7 +73,7 @@ export function PendingApplicationsCard({
           <ul className="space-y-2">
             {applications.map((app) => (
               <li key={app.id}>
-                <ApplicationRow app={app} />
+                <ApplicationRow app={app} divisionOptions={divisionOptions} />
               </li>
             ))}
           </ul>
@@ -82,10 +85,19 @@ export function PendingApplicationsCard({
 
 // --- Single row --------------------------------------------------------
 
-function ApplicationRow({ app }: { app: PendingApplicationRow }) {
+function ApplicationRow({
+  app,
+  divisionOptions,
+}: {
+  app: PendingApplicationRow;
+  divisionOptions: LeagueDivisionOption[];
+}) {
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<"idle" | "rejecting" | "approved" | "rejected">("idle");
   const [rejectReason, setRejectReason] = useState("");
+  const [division, setDivision] = useState(
+    divisionOptions.length === 1 ? divisionOptions[0].value : "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [approvedInvite, setApprovedInvite] = useState<{ url: string; email: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -95,6 +107,7 @@ function ApplicationRow({ app }: { app: PendingApplicationRow }) {
     startTransition(async () => {
       const r: ApproveApplicationResult = await approveSchoolApplication({
         applicationId: app.id,
+        division: division || undefined,
       });
       if (r.ok) {
         setApprovedInvite({ url: r.inviteUrl, email: app.coachEmail });
@@ -262,25 +275,49 @@ function ApplicationRow({ app }: { app: PendingApplicationRow }) {
           </div>
         </div>
       ) : (
-        <div className="mt-3 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("rejecting")}
-            disabled={pending}
-            className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-card hover:text-foreground disabled:opacity-50"
-          >
-            <ThumbsDown className="h-3 w-3" />
-            Reject
-          </button>
-          <button
-            type="button"
-            onClick={handleApprove}
-            disabled={pending}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Check className="h-3 w-3" />
-            {pending ? "Approving…" : "Approve"}
-          </button>
+        <div className="mt-3 space-y-3">
+          {divisionOptions.length > 0 ? (
+            <div className="rounded-md border border-border/60 bg-card/40 p-2">
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                League division
+              </label>
+              <select
+                value={division}
+                onChange={(e) => setDivision(e.target.value)}
+                className="h-8 w-full rounded-md border border-border/60 bg-background px-2 text-[12px] outline-none focus:border-[color:var(--brand-gold)]"
+              >
+                <option value="">Choose division</option>
+                {divisionOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Required before this school can be approved.
+              </p>
+            </div>
+          ) : null}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("rejecting")}
+              disabled={pending}
+              className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-card hover:text-foreground disabled:opacity-50"
+            >
+              <ThumbsDown className="h-3 w-3" />
+              Reject
+            </button>
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={pending || (divisionOptions.length > 0 && !division)}
+              className="inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Check className="h-3 w-3" />
+              {pending ? "Approving…" : "Approve"}
+            </button>
+          </div>
         </div>
       )}
     </div>

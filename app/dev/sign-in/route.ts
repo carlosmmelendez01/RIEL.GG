@@ -3,9 +3,7 @@
  *
  * GET /dev/sign-in?email=<email>
  *
- * 1. Refuse unless ENABLE_DEMO_AUTH is set. This intentionally works in
- *    production when the flag is on — that's how the deployed beta offers
- *    one-click demo accounts. Keep the flag OFF for a locked-down prod.
+ * 1. Refuse in production and unless local demo auth is fully configured.
  * 2. Use the service-role admin client to ensure auth.users has a row for the
  *    target email with a known demo password (creates it if missing, resets
  *    the password if it exists).
@@ -26,15 +24,11 @@ import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPrimaryLanding } from "@/lib/auth/landing";
-
-// Shared demo password — applied to seeded demo accounts on sign-in. Only
-// reachable when ENABLE_DEMO_AUTH is set, and only ever applied to seeded
-// users via this route (never to a coach who signed up via magic link).
-// Must satisfy Supabase's password policy: lower + UPPER + digit + special.
-const DEV_PASSWORD = "RielDemo-Access-2026!";
+import { demoAuthEnabled, isAllowedDemoEmail } from "@/lib/auth/demo";
+import { safeInternalPath } from "@/lib/security/redirect";
 
 export async function GET(request: NextRequest) {
-  if (!env.ENABLE_DEMO_AUTH) {
+  if (!demoAuthEnabled()) {
     return new NextResponse("Demo sign-in is disabled.", { status: 403 });
   }
 
@@ -44,6 +38,9 @@ export async function GET(request: NextRequest) {
 
   if (!email) {
     return NextResponse.json({ error: "email param required" }, { status: 400 });
+  }
+  if (!isAllowedDemoEmail(email)) {
+    return new NextResponse("That account is not enabled for local demo access.", { status: 403 });
   }
 
   if (!env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -70,10 +67,15 @@ export async function GET(request: NextRequest) {
 
   const existing = usersList.users.find((u) => u.email?.toLowerCase() === email);
 
-  // 2. Ensure the user exists with the known dev password.
+  const demoPassword = env.DEMO_AUTH_PASSWORD;
+  if (!demoPassword) {
+    return NextResponse.json({ error: "Demo password not configured" }, { status: 500 });
+  }
+
+  // 2. Ensure the allowlisted local demo user exists with the configured password.
   if (existing) {
     const { error: updateErr } = await admin.auth.admin.updateUserById(existing.id, {
-      password: DEV_PASSWORD,
+      password: demoPassword,
       email_confirm: true,
     });
     if (updateErr) {
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
   } else {
     const { error: createErr } = await admin.auth.admin.createUser({
       email,
-      password: DEV_PASSWORD,
+      password: demoPassword,
       email_confirm: true,
     });
     if (createErr) {
@@ -99,7 +101,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { error: signInErr } = await supabase.auth.signInWithPassword({
     email,
-    password: DEV_PASSWORD,
+    password: demoPassword,
   });
 
   if (signInErr) {
@@ -112,7 +114,8 @@ export async function GET(request: NextRequest) {
   // 4. Bridge the seeded User row + resolve role-based landing. We still
   //    honor an explicit ?next= for deep links.
   const user = await getCurrentUser();
-  const next = explicitNext ?? (user ? await getPrimaryLanding(user.id, user.email) : "/me");
+  const defaultNext = user ? await getPrimaryLanding(user.id, user.email) : "/me";
+  const next = safeInternalPath(explicitNext, defaultNext);
 
   // 5. Redirect to the target page. The cookies set above will travel with
   //    the redirect, so the next page sees a real session.

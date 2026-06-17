@@ -32,11 +32,13 @@ import {
 } from "lucide-react";
 
 import {
-  FORFEIT_REASONS,
   submitForfeit,
-  type ForfeitReasonValue,
   type SubmitForfeitResult,
 } from "@/lib/match/submit-forfeit-action";
+import {
+  FORFEIT_REASONS,
+  type ForfeitReasonValue,
+} from "@/lib/match/forfeit-reasons";
 import { cn } from "@/lib/utils";
 
 // --- Reason labels (UI-only) -------------------------------------------

@@ -17,6 +17,7 @@ import { Topbar } from "@/components/dashboard/topbar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
+import { SchoolCompliancePanel } from "@/components/school/school-compliance-panel";
 import { SchoolInviteManager } from "@/components/school/school-invite-manager";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
@@ -95,6 +96,12 @@ export default async function DashboardSchoolPage() {
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
             <MembersCard members={data.members} viewerRole={data.viewerRole} />
+            <SchoolCompliancePanel
+              schoolId={data.school.id}
+              viewerRole={data.viewerRole}
+              agreementStatus={data.agreementStatus}
+              students={data.complianceStudents}
+            />
           </div>
 
           <div className="space-y-6">

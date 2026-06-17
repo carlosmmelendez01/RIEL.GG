@@ -30,22 +30,9 @@ import {
   ForfeitSubmitted,
   forfeitSubmittedText,
 } from "@/lib/email/templates/forfeit-submitted";
+import { FORFEIT_REASONS } from "@/lib/match/forfeit-reasons";
 
 // --- Public input shape -------------------------------------------------
-
-export const FORFEIT_REASONS = [
-  "OPPONENT_NO_SHOW",
-  "SCHEDULING_CONFLICT",
-  "INSUFFICIENT_ROSTER",
-  "TECHNICAL_ISSUES",
-  "PLAYER_ILLNESS",
-  "ELIGIBILITY_ISSUE",
-  "WEATHER_TRAVEL",
-  "OPPONENT_CONDUCT",
-  "OTHER",
-] as const;
-
-export type ForfeitReasonValue = (typeof FORFEIT_REASONS)[number];
 
 const SubmitForfeitInput = z
   .object({

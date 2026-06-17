@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MatchStateMark, matchStatusToState } from "@/components/brand/logo";
 import { ForfeitTrigger } from "@/components/match/forfeit-trigger";
 import { AdminMatchOverrides } from "@/components/match/admin-overrides";
+import { AdminNoShowReview } from "@/components/match/admin-no-show-review";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   loadLeagueMatchDetail,
@@ -96,6 +97,17 @@ export default async function AdminMatchDetailPage({
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
             <MatchReportsCard match={match} finished={finished} />
+
+            <AdminNoShowReview
+              match={{
+                id: match.id,
+                status: match.status,
+                isForfeit: match.isForfeit,
+                homeTeamLabel: match.home.teamName,
+                awayTeamLabel: match.away.teamName,
+                checkIn: match.checkIn,
+              }}
+            />
 
             <div className="grid gap-6 md:grid-cols-2">
               <LineupCard side="Home" team={match.home} />

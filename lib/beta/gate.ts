@@ -12,20 +12,16 @@
 
 export const BETA_COOKIE = "riel_beta_access";
 
-// 90 days — long enough that a demo viewer enters the password once.
-export const BETA_COOKIE_MAX_AGE = 60 * 60 * 24 * 90;
+// Shared beta access should expire periodically so leaked cookies do not last
+// for an entire season.
+export const BETA_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 /**
- * Deterministic non-cryptographic token (FNV-1a, 32-bit) derived from the
- * password. We store this in the cookie instead of the raw password so the
- * shared secret never sits verbatim in a cookie. Synchronous + dependency-
- * free so it runs identically in edge + node runtimes.
+ * Deterministic SHA-256 token derived from the password. We store this in the
+ * cookie instead of the raw password so the shared secret never sits verbatim
+ * in a cookie. Web Crypto works in both Edge and Node runtimes.
  */
-export function betaToken(password: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < password.length; i++) {
-    h ^= password.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(16).padStart(8, "0");
+export async function betaToken(password: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }

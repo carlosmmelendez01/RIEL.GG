@@ -120,10 +120,17 @@ are under `/admin`.
 ### B1. Onboard a school
 1. A coach applies at `/join` (no account needed).
 2. Go to **Schools** (`/admin/schools`) → the gold **Approval queue** card.
-3. Review the application → **Approve** (creates the school + league membership
-   + a claim link) or **Reject** (with a reason).
+3. Review the application, choose the school's league-specific division
+   (for example, IEN uses **A**, **AA**, **Middle School**, and **Unified**),
+   then **Approve** (creates the school + league membership + a claim link) or
+   **Reject** (with a reason).
 4. On approval, **copy the claim link** and send it to the coach. They open it,
    sign in, and become the school's owner.
+5. To invite a school directly, use **Invite a school** on `/admin/schools` and
+   choose the school's division before sending the claim invite.
+6. To change the available division list, use **Manage divisions** on
+   `/admin/schools`. Renaming and reordering preserve existing assignments.
+   Reassign schools before removing a division that is already in use.
 
 ### B2. Create a competition
 1. **Competitions → New competition** (`/admin/competitions/new`).
@@ -160,6 +167,26 @@ are under `/admin`.
 3. Use **Admin overrides**: Force final score, Mark disputed, Override status,
    or Revert forfeit. Each requires a reason and is recorded in the audit log.
 
+### B7. Review match check-ins / no-shows
+1. Go to **All matches** (`/admin/matches`).
+2. Open the **Needs review** tab for matches where the check-in grace period
+   passed and one or both sides did not check in.
+3. Open the match and review the **No-show review** card.
+4. If one side clearly missed check-in, record the no-show forfeit from that
+   card. If the situation is unclear, mark the match disputed and resolve it
+   after reviewing coach communication.
+5. Every no-show decision is recorded in the audit trail.
+
+### B8. Publish league rules & resources
+1. Go to **Resources** (`/admin/resources`).
+2. Add league handbooks, game-specific rules, lobby setup notes, eligibility
+   rules, or match-day instructions.
+3. Set the audience:
+   - **Everyone** appears on the public league resources page.
+   - **Coaches** appears inside signed-in coach dashboards.
+4. Optionally scope a resource to a game, season, or competition, then publish.
+5. Public resources are available at `/league/[slug]/resources`.
+
 ---
 
 ## Part C — Manage a team (Coach)
@@ -192,6 +219,16 @@ Sign in as a coach (`rpatel@hse.k12.in.us` for the demo). Routes under `/dashboa
 2. Enter the final score → **Submit**. Status → **Awaiting confirmation**.
 3. The **opposing coach** opens the same match and **Confirms** (→ Finished) or
    **Disputes** (→ league admin resolves).
+
+Use the schedule filters at the top of `/dashboard/matches` to switch between
+upcoming, past, and all matches, then narrow by season, date, or team/opponent
+search.
+
+### C6. Read league rules & resources
+1. Go to **Resources** (`/dashboard/resources`).
+2. Review the league-specific rulebook, game rules, lobby setup notes, and
+   match-day instructions before competition nights.
+3. Public-facing resources can also be shared from `/league/[slug]/resources`.
 
 ---
 

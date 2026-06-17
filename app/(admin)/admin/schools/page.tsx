@@ -12,12 +12,14 @@
  */
 
 import { redirect } from "next/navigation";
-import { Building2, GraduationCap, Mail, Users } from "lucide-react";
+import { Building2, CircleAlert, GraduationCap, Mail, ShieldCheck, Users } from "lucide-react";
 
 import { AdminTopbar } from "@/components/admin/topbar";
 import { LeagueAdminEmptyState } from "@/components/admin/empty-state";
 import { InviteSchoolDialog } from "@/components/admin/invite-school-dialog";
+import { ManageSchoolDivisionsDialog } from "@/components/admin/manage-school-divisions-dialog";
 import { PendingApplicationsCard } from "@/components/admin/pending-applications-card";
+import { SchoolDivisionSelect } from "@/components/admin/school-division-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
@@ -26,6 +28,10 @@ import {
   requireLeagueAdmin,
   type LeagueSchoolRow,
 } from "@/lib/league-admin/dashboard";
+import {
+  getLeagueDivisionOptions,
+  type LeagueDivisionOption,
+} from "@/lib/league/divisions";
 
 export default async function AdminSchoolsPage() {
   const user = await getCurrentUser();
@@ -47,6 +53,7 @@ export default async function AdminSchoolsPage() {
     loadLeagueSchools(ctx.league.id),
     loadPendingApplications(ctx.league.id),
   ]);
+  const divisionOptions = getLeagueDivisionOptions(ctx.league);
 
   return (
     <>
@@ -56,7 +63,10 @@ export default async function AdminSchoolsPage() {
       />
 
       <main className="flex-1 space-y-8 px-6 py-6 md:px-8">
-        <PendingApplicationsCard applications={pending} />
+        <PendingApplicationsCard
+          applications={pending}
+          divisionOptions={divisionOptions}
+        />
 
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -69,19 +79,45 @@ export default async function AdminSchoolsPage() {
                 <span className="font-mono">/join</span>.
               </p>
             </div>
-            {schools.length > 0 ? <InviteSchoolDialog leagueName={ctx.league.name} /> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <ManageSchoolDivisionsDialog
+                leagueName={ctx.league.name}
+                options={divisionOptions}
+              />
+              {schools.length > 0 ? (
+                <InviteSchoolDialog
+                  leagueName={ctx.league.name}
+                  divisionOptions={divisionOptions}
+                />
+              ) : null}
+            </div>
           </div>
 
           {schools.length === 0 ? (
             <LeagueAdminEmptyState
               kind="no-schools"
               leagueName={ctx.league.name}
-              actionSlot={<InviteSchoolDialog leagueName={ctx.league.name} />}
+              actionSlot={
+                <div className="flex flex-wrap justify-center gap-2">
+                  <ManageSchoolDivisionsDialog
+                    leagueName={ctx.league.name}
+                    options={divisionOptions}
+                  />
+                  <InviteSchoolDialog
+                    leagueName={ctx.league.name}
+                    divisionOptions={divisionOptions}
+                  />
+                </div>
+              }
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {schools.map((s) => (
-                <SchoolCard key={s.schoolId} school={s} />
+                <SchoolCard
+                  key={s.schoolId}
+                  school={s}
+                  divisionOptions={divisionOptions}
+                />
               ))}
             </div>
           )}
@@ -93,7 +129,13 @@ export default async function AdminSchoolsPage() {
 
 // --- Subcomponents -----------------------------------------------------
 
-function SchoolCard({ school }: { school: LeagueSchoolRow }) {
+function SchoolCard({
+  school,
+  divisionOptions,
+}: {
+  school: LeagueSchoolRow;
+  divisionOptions: LeagueDivisionOption[];
+}) {
   const monogram = (school.shortName ?? school.name)
     .replace(/[^A-Za-z]/g, "")
     .slice(0, 3)
@@ -114,6 +156,18 @@ function SchoolCard({ school }: { school: LeagueSchoolRow }) {
                 {school.shortName ? school.name : ""}
                 {school.city ? `${school.shortName ? " · " : ""}${school.city}, ${school.state ?? ""}` : ""}
               </p>
+              {divisionOptions.length > 0 ? (
+                <SchoolDivisionSelect
+                  schoolId={school.schoolId}
+                  schoolName={school.name}
+                  value={school.division}
+                  options={divisionOptions}
+                />
+              ) : school.divisionLabel ? (
+                <span className="mt-1 inline-flex items-center rounded-sm border border-[color:var(--brand-purple)]/30 bg-[color:var(--brand-purple)]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[color:var(--brand-purple)]">
+                  {school.divisionLabel}
+                </span>
+              ) : null}
             </div>
             {school.ncesId ? (
               <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1 py-0 text-[9px] font-semibold uppercase tracking-wider text-emerald-500">
@@ -129,18 +183,52 @@ function SchoolCard({ school }: { school: LeagueSchoolRow }) {
             <Stat icon={Users} label="Players" value={school.playerCount} />
             <Stat icon={Mail} label="Coaches" value={school.coachCount} />
           </div>
-          <p className="mt-3 text-[10px] text-muted-foreground">
-            Joined{" "}
-            {school.joinedAt.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] text-muted-foreground">
+              Joined{" "}
+              {school.joinedAt.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </p>
+            <ComplianceBadge school={school} />
+          </div>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+function ComplianceBadge({ school }: { school: LeagueSchoolRow }) {
+  if (school.agreementAccepted) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-500">
+        <ShieldCheck className="h-2.5 w-2.5" />
+        {coverageLabel(school.agreementCoverageSource)}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-sm border border-[color:var(--brand-gold)]/30 bg-[color:var(--brand-gold)]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[color:var(--brand-gold)]">
+      <CircleAlert className="h-2.5 w-2.5" />
+      Agreement pending
+    </span>
+  );
+}
+
+function coverageLabel(source: string | null) {
+  switch (source) {
+    case "LEAGUE_MASTER_AGREEMENT":
+      return "Master agreement";
+    case "PARENT_GUARDIAN_REQUIRED":
+      return "Parent consent";
+    case "DIRECT_SCHOOL_AUTHORIZATION":
+      return "School authorized";
+    default:
+      return "Agreement";
+  }
 }
 
 function Stat({

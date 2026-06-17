@@ -34,7 +34,11 @@ export function ClaimButton({
       setResult(r);
       if (r.ok) {
         // Let the success state breathe for a moment, then forward.
-        setTimeout(() => router.push("/dashboard"), 700);
+        const next =
+          r.role === "MANAGER" || r.isOwner
+            ? `/agreements/school/${r.schoolId}`
+            : "/dashboard";
+        setTimeout(() => router.push(next), 700);
       }
     });
   }

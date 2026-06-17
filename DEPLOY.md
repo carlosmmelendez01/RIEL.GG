@@ -29,7 +29,6 @@ and Preview if you want PR previews). Pull the Supabase values from your
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API (publishable/anon) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API (secret) — required for demo sign-in |
 | `DATABASE_URL` | Supabase **pooler** URL, port **6543**, with `?pgbouncer=true&connection_limit=1` |
 | `DIRECT_URL` | Supabase **direct** URL, port **5432** (used only for migrations) |
 | `NEXT_PUBLIC_APP_URL` | Your Vercel URL, e.g. `https://riel-gg.vercel.app` (no trailing slash) |
@@ -43,10 +42,14 @@ and Preview if you want PR previews). Pull the Supabase values from your
 
 | Variable | Value |
 |---|---|
-| `ENABLE_DEMO_AUTH` | `true` |
-| `NEXT_PUBLIC_ENABLE_DEMO_AUTH` | `true` |
+| `ENABLE_DEMO_AUTH` | `false` or unset — production demo impersonation is disabled in code |
+| `NEXT_PUBLIC_ENABLE_DEMO_AUTH` | `false` or unset |
 | `BETA_ACCESS_PASSWORD` | a shared password you hand to demo viewers |
-| `PLATFORM_ADMIN_EMAILS` | leave blank (keeps `/platform` closed) |
+| `PLATFORM_ADMIN_EMAILS` | exact comma-separated platform-admin emails; no domain wildcards |
+
+`SUPABASE_SERVICE_ROLE_KEY`, `DEMO_AUTH_EMAILS`, and `DEMO_AUTH_PASSWORD` are
+local-development settings only. Do not add them to the production Vercel
+environment.
 
 ### Email (optional — feedback + invite emails)
 
@@ -90,8 +93,8 @@ to DB availability.)
 1. Visit the domain → you should hit the **/beta-gate** password screen.
 2. Enter `BETA_ACCESS_PASSWORD` → lands on the marketing home with a **BETA** badge.
 3. Click **Try a demo account** → `/dev` launcher.
-4. Sign in as the **Recommended** league admin (`cmelendez@riel.gg`) → rich `/admin`.
-5. Sign in as the **Recommended** coach (`rpatel@hse.k12.in.us`) → rich `/dashboard`.
+4. Sign in through `/login` with a real allowlisted league-admin account → `/admin`.
+5. Sign in through `/login` with a real invited coach account → `/dashboard`.
 6. Open the **Feedback** button (bottom-right) → submit → confirm it returns a reference id.
 
 ## Updates

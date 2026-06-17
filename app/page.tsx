@@ -19,13 +19,14 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPrimaryLanding } from "@/lib/auth/landing";
+import { demoAuthEnabled } from "@/lib/auth/demo";
 import { cn } from "@/lib/utils";
 
 export default async function Home() {
   const user = await getCurrentUser();
   if (user) redirect(await getPrimaryLanding(user.id, user.email));
 
-  const demoOn = process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === "true";
+  const demoOn = demoAuthEnabled();
 
   return (
     <div className="bg-system flex min-h-screen flex-col">

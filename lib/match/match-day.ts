@@ -24,6 +24,12 @@ export type MatchDayCard = {
   /** Source `Match.status` enum so we can reuse `<MatchStateMark>` if we like. */
   matchStatus: string;
   side: "HOME" | "AWAY";
+  ownRosterId: string;
+  viewerRosterMembershipId: string | null;
+  viewerCheckedIn: boolean;
+  ownCheckedInCount: number;
+  opponentCheckedInCount: number;
+  canCheckInTeam: boolean;
   ownTeam: string;
   ownMonogram: string;
   ownSchoolShort: string;
@@ -58,13 +64,14 @@ export async function loadMatchDay(
   // 1. Resolve the player's rosters + role per roster
   const memberships = await prisma.rosterMembership.findMany({
     where: { userId },
-    select: { rosterId: true, role: true },
+    select: { id: true, rosterId: true, role: true },
   });
   const rosterIds = memberships.map((m) => m.rosterId);
   if (rosterIds.length === 0) return [];
   const roleByRoster = new Map<string, ViewerRosterRole>(
     memberships.map((m) => [m.rosterId, m.role as ViewerRosterRole]),
   );
+  const membershipByRoster = new Map(memberships.map((m) => [m.rosterId, m]));
 
   const now = new Date();
   const windowEnd = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
@@ -127,6 +134,12 @@ export async function loadMatchDay(
         take: 1,
         select: { body: true, createdAt: true },
       },
+      checkIns: {
+        select: {
+          rosterId: true,
+          rosterMembershipId: true,
+        },
+      },
     },
   });
 
@@ -173,7 +186,9 @@ export async function loadMatchDay(
       const lastMsg = m.messages[0] ?? null;
 
       const ownRosterId = isHome ? m.homeRosterId : m.awayRosterId;
+      const opponentRosterId = isHome ? m.awayRosterId : m.homeRosterId;
       const viewerRole = roleByRoster.get(ownRosterId) ?? "PLAYER";
+      const viewerMembership = membershipByRoster.get(ownRosterId) ?? null;
 
       return {
         matchId: m.id,
@@ -182,6 +197,14 @@ export async function loadMatchDay(
         minutesUntil,
         matchStatus: m.status,
         side,
+        ownRosterId,
+        viewerRosterMembershipId: viewerMembership?.id ?? null,
+        viewerCheckedIn: viewerMembership
+          ? m.checkIns.some((checkIn) => checkIn.rosterMembershipId === viewerMembership.id)
+          : false,
+        ownCheckedInCount: m.checkIns.filter((checkIn) => checkIn.rosterId === ownRosterId).length,
+        opponentCheckedInCount: m.checkIns.filter((checkIn) => checkIn.rosterId === opponentRosterId).length,
+        canCheckInTeam: viewerRole === "MANAGER" || viewerRole === "COACH" || viewerRole === "CAPTAIN",
         ownTeam: ownLabel,
         ownMonogram: monogram(own),
         ownSchoolShort: own?.school.shortName ?? own?.school.name ?? "—",

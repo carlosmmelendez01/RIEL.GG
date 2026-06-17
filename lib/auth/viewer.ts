@@ -7,6 +7,7 @@ import { cache } from "react";
 
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, getCurrentLeagueContext } from "@/lib/auth/current-user";
+import { isPlatformAdminEmail } from "@/lib/auth/platform";
 import type { ViewerInfo } from "@/components/auth/mode-switcher";
 
 export const getViewer = cache(async (): Promise<ViewerInfo | null> => {
@@ -27,10 +28,7 @@ export const getViewer = cache(async (): Promise<ViewerInfo | null> => {
     orderBy: { createdAt: "asc" },
   });
 
-  // Platform owner — for now, anyone with `@riel.gg` email or the seeded
-  // `cmelendez@riel.gg` user is treated as a platform owner. Replace with a
-  // proper PlatformAdmin role once we model it.
-  const isPlatformOwner = user.email.endsWith("@riel.gg");
+  const isPlatformOwner = isPlatformAdminEmail(user.email);
 
   // Subtitles
   const coachSubtitle = schoolMembership

@@ -32,7 +32,11 @@ export function ClaimLeagueButton({
       const r = await acceptLeagueInvite({ code });
       setResult(r);
       if (r.ok) {
-        setTimeout(() => router.push("/admin"), 700);
+        const next =
+          r.role === "OWNER" || r.role === "ADMIN"
+            ? `/agreements/league/${r.leagueId}`
+            : "/admin";
+        setTimeout(() => router.push(next), 700);
       }
     });
   }

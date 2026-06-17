@@ -27,6 +27,10 @@ import {
 } from "@/lib/email/templates/school-application-approved";
 import { generateInviteCode } from "@/lib/invite/helpers";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
+import {
+  findLeagueDivisionOption,
+  getLeagueDivisionOptions,
+} from "@/lib/league/divisions";
 
 // --- Shared helpers ----------------------------------------------------
 
@@ -156,6 +160,7 @@ export async function applyToLeague(input: ApplyToLeagueInput): Promise<ApplyToL
 
 const ApproveInput = z.object({
   applicationId: z.string().min(1),
+  division: z.string().trim().max(80).optional(),
   notes: z.string().max(500).optional(),
 });
 
@@ -177,13 +182,19 @@ export async function approveSchoolApplication(
 ): Promise<ApproveApplicationResult> {
   const parsed = ApproveInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
-  const { applicationId, notes } = parsed.data;
+  const { applicationId, division: rawDivision, notes } = parsed.data;
 
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "You need to be signed in." };
 
   const ctx = await requireLeagueAdmin(user.id);
   if (!ctx) return { ok: false, error: "Only league admins can review applications." };
+  const divisionOptions = getLeagueDivisionOptions(ctx.league);
+  const division = rawDivision?.trim() || null;
+  const divisionOption = findLeagueDivisionOption(divisionOptions, division);
+  if (divisionOptions.length > 0 && !divisionOption) {
+    return { ok: false, error: "Choose the school's division before approving." };
+  }
 
   const app = await prisma.schoolApplication.findUnique({
     where: { id: applicationId },
@@ -242,8 +253,16 @@ export async function approveSchoolApplication(
       where: {
         leagueId_schoolId: { leagueId: ctx.league.id, schoolId },
       },
-      update: { status: "ACTIVE" },
-      create: { leagueId: ctx.league.id, schoolId, status: "ACTIVE" },
+      update: {
+        status: "ACTIVE",
+        division: divisionOption?.value ?? division,
+      },
+      create: {
+        leagueId: ctx.league.id,
+        schoolId,
+        status: "ACTIVE",
+        division: divisionOption?.value ?? division,
+      },
       select: { id: true },
     });
 
@@ -294,7 +313,7 @@ export async function approveSchoolApplication(
           status: "APPROVED",
           schoolId,
           leagueMembershipId: membership.id,
-          inviteCode,
+          division: divisionOption?.value ?? division,
         },
         metadata: notes?.trim() ? { notes: notes.trim() } : undefined,
         leagueId: ctx.league.id,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Building2, Calendar, Users, Trophy } from "lucide-react";
+import { Home, Building2, Calendar, FileText, Users, Trophy } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { RielIcon } from "@/components/brand/logo";
@@ -33,6 +33,7 @@ const SECTIONS: NavSection[] = [
       { label: "Schedule", href: "/dashboard/matches", icon: Calendar },
       { label: "Teams", href: "/dashboard/teams", icon: Users },
       { label: "School", href: "/dashboard/school", icon: Building2 },
+      { label: "Resources", href: "/dashboard/resources", icon: FileText },
       { label: "Standings", href: "/dashboard/standings", icon: Trophy },
     ],
   },

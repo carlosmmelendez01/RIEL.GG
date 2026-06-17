@@ -100,7 +100,7 @@ export default async function AdminOverviewPage() {
               Welcome back, <span className="text-foreground">{ctx.admin.name}</span>.
             </p>
             <h2 className="mt-1 text-balance text-4xl font-semibold leading-[1.05] tracking-tight md:text-5xl">
-              <Headline counts={counts} />
+              <Headline counts={counts} leagueName={ctx.league.name} />
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -216,7 +216,13 @@ export default async function AdminOverviewPage() {
 
 // --- Headline -----------------------------------------------------------
 
-function Headline({ counts }: { counts: LeagueAdminDashboardData["counts"] }) {
+function Headline({
+  counts,
+  leagueName,
+}: {
+  counts: LeagueAdminDashboardData["counts"];
+  leagueName: string;
+}) {
   if (counts.openDisputes > 0 && counts.pendingSchoolApplications > 0) {
     return (
       <>
@@ -243,7 +249,7 @@ function Headline({ counts }: { counts: LeagueAdminDashboardData["counts"] }) {
       </>
     );
   }
-  return <>The league is running clean.</>;
+  return <>{leagueName} is running clean.</>;
 }
 
 // --- StatCard -----------------------------------------------------------
@@ -474,6 +480,8 @@ const ACTION_LABEL: Record<string, { label: string; tone: string }> = {
   "MATCH.DISPUTE": { label: "Dispute raised", tone: "crimson" },
   "SCHOOL.JOIN": { label: "School joined", tone: "purple" },
   "SCHOOL.APPROVE": { label: "School approved", tone: "emerald" },
+  "SCHOOL.DIVISION_UPDATE": { label: "School division updated", tone: "purple" },
+  "LEAGUE.DIVISIONS_UPDATE": { label: "League divisions updated", tone: "purple" },
   "COMPETITION.CREATE": { label: "Competition created", tone: "gold" },
   "ROSTER.CREATE": { label: "Roster created", tone: "gold" },
 };

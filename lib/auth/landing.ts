@@ -2,7 +2,7 @@
  * Resolve where a user should land after sign-in based on their roles.
  *
  * Priority hierarchy (most powerful → least):
- *   1. Platform owner (`@riel.gg`)            → /admin (active league mgmt)
+ *   1. Allowlisted platform owner             → /admin (active league mgmt)
  *   2. League adminship (OWNER/ADMIN/STAFF)   → /admin
  *   3. School coach/manager                   → /dashboard
  *   4. Roster member (player only)            → /me
@@ -15,12 +15,11 @@
  */
 
 import { prisma } from "@/lib/db/prisma";
+import { isPlatformAdminEmail } from "@/lib/auth/platform";
 
 export async function getPrimaryLanding(userId: string, email: string): Promise<string> {
-  const lower = email.toLowerCase();
-
-  // 1. Platform owner shortcut (Carlos and friends)
-  if (lower.endsWith("@riel.gg")) return "/admin";
+  // 1. Platform owner shortcut
+  if (isPlatformAdminEmail(email)) return "/admin";
 
   // 2. League adminship of any kind
   const adminship = await prisma.leagueAdminship.findFirst({

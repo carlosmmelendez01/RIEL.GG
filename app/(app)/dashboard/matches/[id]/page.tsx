@@ -15,6 +15,8 @@ import Link from "next/link";
 import {
   ArrowLeft,
   CalendarDays,
+  CheckCircle2,
+  Circle,
   Crown,
   Flag,
   Trophy,
@@ -25,6 +27,7 @@ import { Topbar } from "@/components/dashboard/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ForfeitTrigger } from "@/components/match/forfeit-trigger";
+import { MatchCheckInButton } from "@/components/match/match-check-in-button";
 import { MatchReportingPanel } from "@/components/match/match-reporting-panel";
 import { MatchStateMark, matchStatusToState } from "@/components/brand/logo";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -175,6 +178,8 @@ export default async function MatchDetailPage({
           <div className="space-y-6 xl:col-span-2">
             <MatchReportingPanel match={match} />
 
+            <MatchCheckInCard match={match} />
+
             <LineupCard match={match} />
 
             <ForfeitTrigger
@@ -197,6 +202,61 @@ export default async function MatchDetailPage({
 }
 
 // --- Subcomponents ------------------------------------------------------
+
+function MatchCheckInCard({ match }: { match: CoachMatchDetail }) {
+  const rosterMembershipIds = match.ownTeam.lineup.map((p) => p.rosterMembershipId);
+  const allCheckedIn =
+    rosterMembershipIds.length > 0 &&
+    match.checkIn.ownCheckedInCount >= rosterMembershipIds.length;
+  const closed =
+    match.status === "FINISHED" ||
+    match.status === "FORFEITED" ||
+    match.status === "CANCELED" ||
+    match.status === "DISPUTED";
+
+  return (
+    <Card className="border-border/60 bg-card/80">
+      <CardHeader className="pb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
+          Match readiness
+        </p>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          Check-in
+          <span className="ml-auto text-[11px] font-normal text-muted-foreground">
+            {match.checkIn.ownCheckedInCount} of {rosterMembershipIds.length} ready
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1 text-[12px] text-muted-foreground">
+          <p>
+            {match.ownTeam.name}:{" "}
+            <span className="font-semibold text-foreground">
+              {match.checkIn.ownCheckedInCount}
+            </span>{" "}
+            checked in
+          </p>
+          <p>
+            {match.opponentTeam.name}:{" "}
+            <span className="font-semibold text-foreground">
+              {match.checkIn.opponentCheckedInCount}
+            </span>{" "}
+            checked in
+          </p>
+        </div>
+        <MatchCheckInButton
+          matchId={match.id}
+          rosterMembershipIds={rosterMembershipIds}
+          checkedIn={allCheckedIn}
+          checkedLabel="Roster ready"
+          label="Check in roster"
+          disabled={!match.checkIn.canCheckInTeam || closed || rosterMembershipIds.length === 0}
+        />
+      </CardContent>
+    </Card>
+  );
+}
 
 function LineupCard({ match }: { match: CoachMatchDetail }) {
   return (
@@ -255,6 +315,11 @@ function LineupCard({ match }: { match: CoachMatchDetail }) {
                       #{p.jerseyNumber}
                     </span>
                   ) : null}
+                  {p.checkedIn ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" aria-label="Checked in" />
+                  ) : (
+                    <Circle className="h-4 w-4 shrink-0 text-muted-foreground/45" aria-label="Not checked in" />
+                  )}
                 </li>
               );
             })}

@@ -15,6 +15,8 @@
  * empty arrays and the page renders an empty state.
  */
 
+import type { MatchStatus, Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/db/prisma";
 
 // --- Types --------------------------------------------------------------
@@ -64,6 +66,48 @@ export type CoachRecentResult = {
   isWin: boolean;
   isForfeit: boolean;
   game: string;
+};
+
+export type CoachScheduleView = "upcoming" | "past" | "all";
+
+export type CoachScheduleFilters = {
+  view?: CoachScheduleView;
+  seasonId?: string;
+  date?: string;
+  q?: string;
+};
+
+export type CoachScheduleRow = {
+  matchId: string;
+  scheduledAt: Date;
+  finishedAt: Date | null;
+  status: string;
+  ownTeamName: string;
+  ownTeamMonogram: string;
+  opponentTeamName: string;
+  opponentSchoolShort: string;
+  opponentMonogram: string;
+  game: string;
+  competitionName: string;
+  seasonId: string;
+  seasonName: string;
+  isHome: boolean;
+  score: string | null;
+  tone: "upcoming" | "live" | "win" | "loss" | "muted";
+};
+
+export type CoachScheduleData = {
+  schoolName: string;
+  teamsCount: number;
+  filters: Required<Pick<CoachScheduleFilters, "view">> &
+    Pick<CoachScheduleFilters, "seasonId" | "date" | "q">;
+  seasons: Array<{ id: string; name: string }>;
+  rows: CoachScheduleRow[];
+  counts: {
+    upcoming: number;
+    past: number;
+    all: number;
+  };
 };
 
 export type CoachStandingRow = {
@@ -378,6 +422,210 @@ export async function loadCoachDashboard(
   };
 }
 
+// --- Schedule page ------------------------------------------------------
+
+const UPCOMING_STATUSES: MatchStatus[] = [
+  "SCHEDULED",
+  "CHECKING_IN",
+  "IN_PROGRESS",
+  "AWAITING_CONFIRMATION",
+];
+const PAST_STATUSES: MatchStatus[] = ["FINISHED", "FORFEITED", "CANCELED", "DISPUTED"];
+
+export async function loadCoachSchedule(
+  userId: string,
+  filters: CoachScheduleFilters = {},
+): Promise<CoachScheduleData | null> {
+  const schools = await getCoachSchools(userId);
+  if (schools.length === 0) return null;
+
+  const view: CoachScheduleView =
+    filters.view === "past" || filters.view === "all" ? filters.view : "upcoming";
+  const q = filters.q?.trim() || undefined;
+  const seasonId = filters.seasonId?.trim() || undefined;
+  const date = normalizeDateFilter(filters.date);
+  const schoolIds = schools.map((school) => school.id);
+
+  const teamRows = await prisma.team.findMany({
+    where: { schoolId: { in: schoolIds } },
+    select: {
+      id: true,
+      rosters: {
+        select: {
+          id: true,
+          competition: {
+            select: {
+              season: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  const rosterIds = teamRows.flatMap((team) => team.rosters.map((roster) => roster.id));
+  if (rosterIds.length === 0) {
+    return {
+      schoolName: schools[0].name,
+      teamsCount: teamRows.length,
+      filters: { view, seasonId, date, q },
+      seasons: [],
+      rows: [],
+      counts: { upcoming: 0, past: 0, all: 0 },
+    };
+  }
+
+  const seasonMap = new Map<string, string>();
+  for (const team of teamRows) {
+    for (const roster of team.rosters) {
+      seasonMap.set(roster.competition.season.id, roster.competition.season.name);
+    }
+  }
+  const seasons = Array.from(seasonMap.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => b.name.localeCompare(a.name));
+
+  const baseWhere = {
+    OR: [{ homeRosterId: { in: rosterIds } }, { awayRosterId: { in: rosterIds } }],
+  };
+
+  const [upcomingCount, pastCount] = await Promise.all([
+    prisma.match.count({
+      where: { ...baseWhere, status: { in: UPCOMING_STATUSES } },
+    }),
+    prisma.match.count({
+      where: { ...baseWhere, status: { in: PAST_STATUSES } },
+    }),
+  ]);
+
+  const where: Prisma.MatchWhereInput = { ...baseWhere };
+  if (view === "upcoming") where.status = { in: UPCOMING_STATUSES };
+  if (view === "past") where.status = { in: PAST_STATUSES };
+  if (seasonId) where.stage = { competition: { seasonId } };
+  if (date) {
+    const start = new Date(`${date}T00:00:00`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    where.scheduledAt = { gte: start, lt: end };
+  }
+
+  const rows = await prisma.match.findMany({
+    where,
+    orderBy: view === "past" ? { scheduledAt: "desc" } : { scheduledAt: "asc" },
+    take: 200,
+    select: {
+      id: true,
+      status: true,
+      scheduledAt: true,
+      finishedAt: true,
+      homeRosterId: true,
+      awayRosterId: true,
+      homeScore: true,
+      awayScore: true,
+      winnerRosterId: true,
+      isForfeit: true,
+      homeRoster: {
+        select: {
+          team: {
+            select: {
+              customName: true,
+              school: { select: { shortName: true, name: true } },
+            },
+          },
+        },
+      },
+      awayRoster: {
+        select: {
+          team: {
+            select: {
+              customName: true,
+              school: { select: { shortName: true, name: true } },
+            },
+          },
+        },
+      },
+      stage: {
+        select: {
+          competition: {
+            select: {
+              name: true,
+              gameTitle: { select: { name: true } },
+              season: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const query = q?.toLowerCase();
+  const shaped = rows
+    .map((match): CoachScheduleRow => {
+      const isHome = rosterIds.includes(match.homeRosterId);
+      const ownRosterId = isHome ? match.homeRosterId : match.awayRosterId;
+      const own = isHome ? match.homeRoster?.team : match.awayRoster?.team;
+      const opp = isHome ? match.awayRoster?.team : match.homeRoster?.team;
+      const ourScore = isHome ? match.homeScore : match.awayScore;
+      const theirScore = isHome ? match.awayScore : match.homeScore;
+      const score =
+        ourScore !== null && theirScore !== null ? `${ourScore}-${theirScore}` : null;
+      const isClosed = PAST_STATUSES.includes(match.status);
+      const isWin = isClosed && match.winnerRosterId === ownRosterId;
+      const isLive =
+        match.status === "CHECKING_IN" ||
+        match.status === "IN_PROGRESS" ||
+        match.status === "AWAITING_CONFIRMATION";
+
+      return {
+        matchId: match.id,
+        scheduledAt: match.scheduledAt,
+        finishedAt: match.finishedAt,
+        status: match.status,
+        ownTeamName: teamLabel(own),
+        ownTeamMonogram: monogram(own),
+        opponentTeamName: teamLabel(opp),
+        opponentSchoolShort: opp?.school.shortName ?? opp?.school.name ?? "-",
+        opponentMonogram: monogram(opp),
+        game: match.stage.competition.gameTitle.name,
+        competitionName: match.stage.competition.name.replace(/^Spring 2026 — /, ""),
+        seasonId: match.stage.competition.season.id,
+        seasonName: match.stage.competition.season.name,
+        isHome,
+        score,
+        tone: isLive
+          ? "live"
+          : !isClosed
+            ? "upcoming"
+            : isWin
+              ? "win"
+              : match.winnerRosterId
+                ? "loss"
+                : "muted",
+      };
+    })
+    .filter((row) => {
+      if (!query) return true;
+      return [
+        row.ownTeamName,
+        row.opponentTeamName,
+        row.opponentSchoolShort,
+        row.game,
+        row.competitionName,
+        row.seasonName,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+
+  return {
+    schoolName: schools[0].name,
+    teamsCount: teamRows.length,
+    filters: { view, seasonId, date, q },
+    seasons,
+    rows: shaped,
+    counts: { upcoming: upcomingCount, past: pastCount, all: upcomingCount + pastCount },
+  };
+}
+
 // --- Standings tables (full per-competition) ---------------------------
 
 export type StandingsTable = {
@@ -543,6 +791,11 @@ export type CoachMatchDetail = {
   canReport: boolean;
   /** Most recent MatchReport on the match — null if none yet. */
   lastReport: CoachMatchLastReport | null;
+  checkIn: {
+    ownCheckedInCount: number;
+    opponentCheckedInCount: number;
+    canCheckInTeam: boolean;
+  };
   ownTeam: {
     id: string;
     name: string;
@@ -550,7 +803,15 @@ export type CoachMatchDetail = {
     schoolShort: string;
     monogram: string;
     rosterId: string;
-    lineup: Array<{ userId: string; name: string; role: string; jerseyNumber: number | null; inGameName: string | null }>;
+    lineup: Array<{
+      rosterMembershipId: string;
+      userId: string;
+      name: string;
+      role: string;
+      jerseyNumber: number | null;
+      inGameName: string | null;
+      checkedIn: boolean;
+    }>;
   };
   opponentTeam: {
     id: string;
@@ -603,6 +864,7 @@ export async function loadCoachMatch(
           },
           members: {
             select: {
+              id: true,
               role: true,
               jerseyNumber: true,
               inGameName: true,
@@ -625,6 +887,7 @@ export async function loadCoachMatch(
           },
           members: {
             select: {
+              id: true,
               role: true,
               jerseyNumber: true,
               inGameName: true,
@@ -639,6 +902,12 @@ export async function loadCoachMatch(
           competition: {
             select: { name: true, gameTitle: { select: { name: true } } },
           },
+        },
+      },
+      checkIns: {
+        select: {
+          rosterId: true,
+          rosterMembershipId: true,
         },
       },
     },
@@ -663,6 +932,9 @@ export async function loadCoachMatch(
       m.user.id === userId &&
       (m.role === "COACH" || m.role === "CAPTAIN" || m.role === "MANAGER"),
   );
+  const ownCheckedInCount = match.checkIns.filter((c) => c.rosterId === ownRoster.id).length;
+  const opponentCheckedInCount = match.checkIns.filter((c) => c.rosterId === oppRoster.id).length;
+  const checkedInMembershipIds = new Set(match.checkIns.map((c) => c.rosterMembershipId));
 
   // Latest report on the match (for confirm / dispute UI state)
   const lastReportRow = await prisma.matchReport.findFirst({
@@ -710,6 +982,11 @@ export async function loadCoachMatch(
     side,
     canReport,
     lastReport,
+    checkIn: {
+      ownCheckedInCount,
+      opponentCheckedInCount,
+      canCheckInTeam: canReport,
+    },
     ownTeam: {
       id: ownRoster.team.id,
       name: teamLabelFor(ownRoster.team),
@@ -718,11 +995,13 @@ export async function loadCoachMatch(
       monogram: monogramFor(ownRoster.team),
       rosterId: ownRoster.id,
       lineup: ownRoster.members.map((m) => ({
+        rosterMembershipId: m.id,
         userId: m.user.id,
         name: m.user.fullName,
         role: m.role,
         jerseyNumber: m.jerseyNumber,
         inGameName: m.inGameName,
+        checkedIn: checkedInMembershipIds.has(m.id),
       })),
     },
     opponentTeam: {
@@ -821,6 +1100,12 @@ function monogram(t: { customName: string | null; school: { shortName: string | 
   if (!t) return "—";
   const src = t.customName ?? t.school.shortName ?? t.school.name;
   return src.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "—";
+}
+
+function normalizeDateFilter(date: string | undefined): string | undefined {
+  const value = date?.trim();
+  if (!value) return undefined;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
 }
 
 function deriveInitials(name: string): string {

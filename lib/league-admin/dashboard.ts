@@ -16,6 +16,18 @@
  */
 
 import { prisma } from "@/lib/db/prisma";
+import {
+  loadLeagueAgreementStatus,
+  SCHOOL_PARTICIPATION_AGREEMENT_VERSION,
+} from "@/lib/compliance/agreements";
+import {
+  evaluateCheckInReview,
+  type CheckInReviewState,
+} from "@/lib/match/check-in-policy";
+import {
+  getLeagueDivisionOptions,
+  labelForLeagueDivision,
+} from "@/lib/league/divisions";
 
 // --- Types --------------------------------------------------------------
 
@@ -24,6 +36,8 @@ export type AdminLeague = {
   slug: string;
   name: string;
   shortName: string;
+  classification: string;
+  schoolDivisions: unknown;
 };
 
 export type AdminContext = {
@@ -113,7 +127,15 @@ export async function requireLeagueAdmin(userId: string): Promise<AdminContext |
   const adminships = await prisma.leagueAdminship.findMany({
     where: { userId },
     include: {
-      league: { select: { id: true, slug: true, name: true } },
+      league: {
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          classification: true,
+          schoolDivisions: true,
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -125,12 +147,19 @@ export async function requireLeagueAdmin(userId: string): Promise<AdminContext |
     slug: primary.league.slug,
     name: primary.league.name,
     shortName: shortNameFor(primary.league.name),
+    classification: primary.league.classification,
+    schoolDivisions: primary.league.schoolDivisions,
   };
+  const agreementStatus = await loadLeagueAgreementStatus(league.id);
+  if (!agreementStatus.accepted) return null;
+
   const allLeagues: AdminLeague[] = adminships.map((a) => ({
     id: a.league.id,
     slug: a.league.slug,
     name: a.league.name,
     shortName: shortNameFor(a.league.name),
+    classification: a.league.classification,
+    schoolDivisions: a.league.schoolDivisions,
   }));
 
   return {
@@ -351,10 +380,15 @@ export type LeagueSchoolRow = {
   ncesId: string | null;
   state: string | null;
   city: string | null;
+  division: string | null;
+  divisionLabel: string | null;
   joinedAt: Date;
   teamCount: number;
   playerCount: number;
   coachCount: number;
+  agreementAccepted: boolean;
+  agreementAcceptedAt: Date | null;
+  agreementCoverageSource: string | null;
 };
 
 /**
@@ -366,7 +400,9 @@ export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolR
     where: { leagueId },
     orderBy: { joinedAt: "asc" },
     select: {
+      division: true,
       joinedAt: true,
+      league: { select: { name: true, slug: true, classification: true } },
       school: {
         select: {
           id: true,
@@ -389,10 +425,31 @@ export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolR
               },
             },
           },
+          agreementAcceptances: {
+            where: {
+              type: "SCHOOL_PARTICIPATION",
+              version: SCHOOL_PARTICIPATION_AGREEMENT_VERSION,
+              revokedAt: null,
+              supersededAt: null,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              createdAt: true,
+              coverageSource: true,
+            },
+          },
         },
       },
     },
   });
+  const divisionOptions = memberships[0]
+    ? getLeagueDivisionOptions({
+        name: memberships[0].league.name,
+        slug: memberships[0].league.slug,
+        classification: memberships[0].league.classification,
+      })
+    : [];
 
   return memberships.map((m) => {
     const teamCount = m.school.teams.length;
@@ -411,10 +468,15 @@ export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolR
       ncesId: m.school.ncesId,
       state: m.school.state,
       city: m.school.city,
+      division: m.division,
+      divisionLabel: labelForLeagueDivision(divisionOptions, m.division),
       joinedAt: m.joinedAt,
       teamCount,
       playerCount,
       coachCount: coachIds.size,
+      agreementAccepted: m.school.agreementAcceptances.length > 0,
+      agreementAcceptedAt: m.school.agreementAcceptances[0]?.createdAt ?? null,
+      agreementCoverageSource: m.school.agreementAcceptances[0]?.coverageSource ?? null,
     };
   });
 }
@@ -490,6 +552,9 @@ export type LeagueMatchRow = {
   finishedAt: Date | null;
   status: string;
   isForfeit: boolean;
+  homeCheckInCount: number;
+  awayCheckInCount: number;
+  checkInReview: CheckInReviewState;
   homeTeam: string;
   homeMonogram: string;
   homeSchoolShort: string;
@@ -523,6 +588,11 @@ export async function loadLeagueMatches(
       finishedAt: true,
       homeScore: true,
       awayScore: true,
+      checkIns: {
+        select: {
+          side: true,
+        },
+      },
       homeRoster: {
         select: {
           team: {
@@ -557,26 +627,40 @@ export async function loadLeagueMatches(
     },
   });
 
-  return rows.map((m) => ({
-    matchId: m.id,
-    scheduledAt: m.scheduledAt,
-    finishedAt: m.finishedAt,
-    status: m.status,
-    isForfeit: m.isForfeit,
-    homeTeam: teamLabel(m.homeRoster?.team),
-    homeMonogram: monogramFor(m.homeRoster?.team),
-    homeSchoolShort:
-      m.homeRoster?.team.school.shortName ?? m.homeRoster?.team.school.name ?? "—",
-    awayTeam: teamLabel(m.awayRoster?.team),
-    awayMonogram: monogramFor(m.awayRoster?.team),
-    awaySchoolShort:
-      m.awayRoster?.team.school.shortName ?? m.awayRoster?.team.school.name ?? "—",
-    homeScore: m.homeScore,
-    awayScore: m.awayScore,
-    competition: m.stage.competition.name.replace(/^Spring 2026 — /, ""),
-    game: m.stage.competition.gameTitle.name,
-    tier: m.stage.competition.skillTier,
-  }));
+  return rows.map((m) => {
+    const homeCheckInCount = m.checkIns.filter((checkIn) => checkIn.side === "HOME").length;
+    const awayCheckInCount = m.checkIns.filter((checkIn) => checkIn.side === "AWAY").length;
+
+    return {
+      matchId: m.id,
+      scheduledAt: m.scheduledAt,
+      finishedAt: m.finishedAt,
+      status: m.status,
+      isForfeit: m.isForfeit,
+      homeCheckInCount,
+      awayCheckInCount,
+      checkInReview: evaluateCheckInReview({
+        scheduledAt: m.scheduledAt,
+        status: m.status,
+        isForfeit: m.isForfeit,
+        homeCheckInCount,
+        awayCheckInCount,
+      }),
+      homeTeam: teamLabel(m.homeRoster?.team),
+      homeMonogram: monogramFor(m.homeRoster?.team),
+      homeSchoolShort:
+        m.homeRoster?.team.school.shortName ?? m.homeRoster?.team.school.name ?? "—",
+      awayTeam: teamLabel(m.awayRoster?.team),
+      awayMonogram: monogramFor(m.awayRoster?.team),
+      awaySchoolShort:
+        m.awayRoster?.team.school.shortName ?? m.awayRoster?.team.school.name ?? "—",
+      homeScore: m.homeScore,
+      awayScore: m.awayScore,
+      competition: m.stage.competition.name.replace(/^Spring 2026 — /, ""),
+      game: m.stage.competition.gameTitle.name,
+      tier: m.stage.competition.skillTier,
+    };
+  });
 }
 
 // --- Single-match admin detail -----------------------------------------
@@ -594,6 +678,15 @@ export type LeagueMatchDetail = {
   bestOf: number;
   homeScore: number | null;
   awayScore: number | null;
+  checkIn: {
+    homeCheckedInCount: number;
+    awayCheckedInCount: number;
+    homeRosterSize: number;
+    awayRosterSize: number;
+    homeCheckedInNames: string[];
+    awayCheckedInNames: string[];
+    review: CheckInReviewState;
+  };
   home: TeamAdminView;
   away: TeamAdminView;
   game: string;
@@ -655,6 +748,13 @@ export async function loadLeagueMatchDetail(
       bestOf: true,
       homeScore: true,
       awayScore: true,
+      checkIns: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          side: true,
+          user: { select: { fullName: true } },
+        },
+      },
       homeRoster: rosterAdminSelect(),
       awayRoster: rosterAdminSelect(),
       stage: {
@@ -716,6 +816,14 @@ export async function loadLeagueMatchDetail(
     actorName: a.actorUser?.fullName ?? null,
     when: a.createdAt,
   }));
+  const homeCheckedInNames = match.checkIns
+    .filter((checkIn) => checkIn.side === "HOME")
+    .map((checkIn) => checkIn.user.fullName);
+  const awayCheckedInNames = match.checkIns
+    .filter((checkIn) => checkIn.side === "AWAY")
+    .map((checkIn) => checkIn.user.fullName);
+  const homeCheckedInCount = homeCheckedInNames.length;
+  const awayCheckedInCount = awayCheckedInNames.length;
 
   return {
     id: match.id,
@@ -730,6 +838,21 @@ export async function loadLeagueMatchDetail(
     bestOf: match.bestOf,
     homeScore: match.homeScore,
     awayScore: match.awayScore,
+    checkIn: {
+      homeCheckedInCount,
+      awayCheckedInCount,
+      homeRosterSize: match.homeRoster?.members.length ?? 0,
+      awayRosterSize: match.awayRoster?.members.length ?? 0,
+      homeCheckedInNames,
+      awayCheckedInNames,
+      review: evaluateCheckInReview({
+        scheduledAt: match.scheduledAt,
+        status: match.status,
+        isForfeit: match.isForfeit,
+        homeCheckInCount: homeCheckedInCount,
+        awayCheckInCount: awayCheckedInCount,
+      }),
+    },
     home: shapeTeam(match.homeRoster),
     away: shapeTeam(match.awayRoster),
     game: match.stage.competition.gameTitle.name,

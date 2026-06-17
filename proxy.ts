@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
     );
     if (!allowed) {
       const cookie = request.cookies.get(BETA_COOKIE)?.value;
-      if (cookie !== betaToken(betaPassword)) {
+      if (cookie !== (await betaToken(betaPassword))) {
         const gate = new URL("/beta-gate", request.url);
         gate.searchParams.set("next", pathname + request.nextUrl.search);
         return NextResponse.redirect(gate);

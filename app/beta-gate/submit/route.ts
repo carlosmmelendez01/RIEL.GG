@@ -9,6 +9,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { BETA_COOKIE, BETA_COOKIE_MAX_AGE, betaToken } from "@/lib/beta/gate";
+import { safeInternalPath } from "@/lib/security/redirect";
 
 export async function POST(request: NextRequest) {
   const expected = process.env.BETA_ACCESS_PASSWORD;
@@ -17,8 +18,7 @@ export async function POST(request: NextRequest) {
 
   const form = await request.formData();
   const password = String(form.get("password") ?? "");
-  const nextRaw = String(form.get("next") ?? "/");
-  const next = nextRaw.startsWith("/") ? nextRaw : "/";
+  const next = safeInternalPath(String(form.get("next") ?? "/"));
 
   if (password !== expected) {
     const back = new URL("/beta-gate", request.url);
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(new URL(next, request.url), { status: 303 });
-  response.cookies.set(BETA_COOKIE, betaToken(expected), {
+  response.cookies.set(BETA_COOKIE, await betaToken(expected), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

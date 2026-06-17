@@ -15,6 +15,8 @@
  */
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import {
   Bell,
   CalendarDays,
@@ -29,6 +31,7 @@ import {
 
 import { ChatSheet } from "@/components/match/chat-sheet";
 import { MatchStateMark } from "@/components/brand/logo";
+import { checkInForMatch } from "@/lib/match/check-in-actions";
 import { cn } from "@/lib/utils";
 import type {
   MatchChatPayload,
@@ -334,10 +337,16 @@ function CheckInSheet({
   card: MatchDayCard | null;
   onClose: () => void;
 }) {
-  const [checked, setChecked] = useState(false);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const checked = Boolean(card?.viewerCheckedIn || confirmed);
 
   function handleClose() {
-    setChecked(false);
+    setConfirmed(false);
+    setError(null);
     onClose();
   }
 
@@ -361,8 +370,8 @@ function CheckInSheet({
           <div>
             <h3 className="text-lg font-semibold tracking-tight">You&apos;re checked in.</h3>
             <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
-              Your coach has been notified. Stay close to your station — the match opens for
-              first game in {formatWhen(card)}.
+              Your check-in is saved. Stay close to your station — the match opens for first game
+              in {formatWhen(card)}.
             </p>
           </div>
           <button
@@ -389,6 +398,9 @@ function CheckInSheet({
               Role · <span className="font-mono uppercase">{card.viewerRole.toLowerCase()}</span> ·{" "}
               {card.ownSchoolShort}
             </p>
+            <p className="mt-1 text-muted-foreground">
+              Check-ins · {card.ownCheckedInCount} us · {card.opponentCheckedInCount} them
+            </p>
           </div>
 
           <div className="flex items-center justify-end gap-2">
@@ -401,13 +413,33 @@ function CheckInSheet({
             </button>
             <button
               type="button"
-              onClick={() => setChecked(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[color:var(--brand-crimson)] px-3 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[color:var(--brand-crimson-deep)]"
+              disabled={pending || !card.viewerRosterMembershipId}
+              onClick={() => {
+                setError(null);
+                startTransition(async () => {
+                  const result = await checkInForMatch({
+                    matchId: card.matchId,
+                    rosterMembershipIds: card.viewerRosterMembershipId
+                      ? [card.viewerRosterMembershipId]
+                      : undefined,
+                  });
+                  if (!result.ok) {
+                    setError(result.error);
+                    return;
+                  }
+                  setConfirmed(true);
+                  router.refresh();
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[color:var(--brand-crimson)] px-3 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[color:var(--brand-crimson-deep)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Check me in
+              {pending ? "Checking in..." : "Check me in"}
             </button>
           </div>
+          {error ? (
+            <p className="text-right text-[11px] text-[color:var(--brand-crimson)]">{error}</p>
+          ) : null}
         </div>
       )}
     </SheetShell>

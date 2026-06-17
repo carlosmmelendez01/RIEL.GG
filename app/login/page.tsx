@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { safeInternalPath } from "@/lib/security/redirect";
 import { cn } from "@/lib/utils";
 
 type Mode = "default" | "magic-link-sent" | "loading" | "error";
@@ -42,7 +43,7 @@ function LoginShell() {
 
 function LoginInner() {
   const params = useSearchParams();
-  const next = params.get("next") || "/dashboard";
+  const next = safeInternalPath(params.get("next"), "/dashboard");
 
   const [mode, setMode] = useState<Mode>("default");
   const [email, setEmail] = useState("");
@@ -217,13 +218,13 @@ function LoginInner() {
 
           <p className="mt-6 text-center text-[11px] text-muted-foreground">
             By signing in you agree to RIEL.GG&apos;s{" "}
-            <a href="#" className="underline hover:text-foreground">
+            <Link href="/terms" className="underline hover:text-foreground">
               Terms
-            </a>{" "}
+            </Link>{" "}
             and{" "}
-            <a href="#" className="underline hover:text-foreground">
+            <Link href="/privacy" className="underline hover:text-foreground">
               Privacy Policy
-            </a>
+            </Link>
             .
           </p>
         </div>
@@ -318,4 +319,3 @@ function humanizeProviderError(message: string, provider: "google" | "azure"): s
   }
   return message;
 }
-

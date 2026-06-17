@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Building2,
   Calendar,
+  FileText,
   Trophy,
   Users,
 } from "lucide-react";
@@ -88,6 +89,13 @@ export default async function PublicLeaguePage({
               className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
             >
               Latest results
+            </Link>
+            <Link
+              href={`/league/${league.slug}/resources`}
+              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Resources
             </Link>
           </div>
         </div>

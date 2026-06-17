@@ -30,6 +30,7 @@ import { emailUrl, sendEmail } from "@/lib/email/send";
 import { RosterApproved, rosterApprovedText } from "@/lib/email/templates/roster-approved";
 import { RosterRejected, rosterRejectedText } from "@/lib/email/templates/roster-rejected";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
+import { loadSchoolAgreementStatus } from "@/lib/compliance/agreements";
 
 // --- Shared types ------------------------------------------------------
 
@@ -75,6 +76,11 @@ async function requireSchoolCoach(userId: string, schoolId: string) {
   return m;
 }
 
+async function requireSchoolAgreement(schoolId: string) {
+  const status = await loadSchoolAgreementStatus(schoolId);
+  return status.accepted;
+}
+
 // --- 1. createTeam -----------------------------------------------------
 
 const CreateTeamInput = z.object({
@@ -111,6 +117,12 @@ export async function createTeam(
     return {
       ok: false,
       error: "Only the school's coach or manager can create teams.",
+    };
+  }
+  if (!(await requireSchoolAgreement(data.schoolId))) {
+    return {
+      ok: false,
+      error: "A school manager must accept the school agreement before creating teams.",
     };
   }
 
@@ -220,6 +232,12 @@ export async function registerTeamForCompetition(
     return {
       ok: false,
       error: "Only the school's coach or manager can register a team.",
+    };
+  }
+  if (!(await requireSchoolAgreement(team.schoolId))) {
+    return {
+      ok: false,
+      error: "A school manager must accept the school agreement before registering teams.",
     };
   }
 
@@ -370,6 +388,12 @@ export async function addPlayerToRoster(
       error: "Only the school's coach or manager can manage rosters.",
     };
   }
+  if (!(await requireSchoolAgreement(roster.team.schoolId))) {
+    return {
+      ok: false,
+      error: "A school manager must accept the school agreement before changing rosters.",
+    };
+  }
   if (roster.editLock === "LOCKED") {
     return {
       ok: false,
@@ -494,6 +518,12 @@ export async function removePlayerFromRoster(
     return {
       ok: false,
       error: "Only the school's coach or manager can manage rosters.",
+    };
+  }
+  if (!(await requireSchoolAgreement(m.roster.team.schoolId))) {
+    return {
+      ok: false,
+      error: "A school manager must accept the school agreement before changing rosters.",
     };
   }
   if (m.roster.editLock === "LOCKED") {

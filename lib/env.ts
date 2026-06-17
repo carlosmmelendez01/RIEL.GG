@@ -6,12 +6,24 @@ const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 
   // --- Beta / demo controls ---------------------------------------------
-  // When "true", the one-click demo sign-in (/dev) works even in production.
-  // Leave unset/false for a locked-down prod.
+  // Local-development switch for one-click demo sign-in. Production refuses
+  // demo auth even when this flag is accidentally left enabled.
   ENABLE_DEMO_AUTH: z
     .string()
     .optional()
     .transform((v) => v === "true"),
+  // Local-development only. Production code refuses demo auth regardless of
+  // these values so a stale hosting flag cannot reopen the impersonation path.
+  DEMO_AUTH_EMAILS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? "")
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  DEMO_AUTH_PASSWORD: z.string().min(12).optional(),
   // Shared password for the beta access gate. When set, every route is
   // locked behind /beta-gate until the visitor enters it. Unset = open.
   BETA_ACCESS_PASSWORD: z.string().optional(),
@@ -55,6 +67,8 @@ const _server = serverSchema.parse({
   DIRECT_URL: opt(process.env.DIRECT_URL),
   SUPABASE_SERVICE_ROLE_KEY: opt(process.env.SUPABASE_SERVICE_ROLE_KEY),
   ENABLE_DEMO_AUTH: opt(process.env.ENABLE_DEMO_AUTH),
+  DEMO_AUTH_EMAILS: opt(process.env.DEMO_AUTH_EMAILS),
+  DEMO_AUTH_PASSWORD: opt(process.env.DEMO_AUTH_PASSWORD),
   BETA_ACCESS_PASSWORD: opt(process.env.BETA_ACCESS_PASSWORD),
   FEEDBACK_EMAIL: opt(process.env.FEEDBACK_EMAIL),
   PLATFORM_ADMIN_EMAILS: opt(process.env.PLATFORM_ADMIN_EMAILS),

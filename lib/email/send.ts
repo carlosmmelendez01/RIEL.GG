@@ -43,7 +43,7 @@ export type SendEmailResult =
   | { ok: true; id: string; provider: "resend" | "console" }
   | { ok: false; error: string };
 
-const DEFAULT_FROM = "RIEL.GG <hello@riel.gg>";
+const DEFAULT_FROM = "ArcLight <hello@riel.gg>";
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const client = getClient();

@@ -11,7 +11,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Crown, Flag } from "lucide-react";
 
-import { RielLockup, MatchStateMark } from "@/components/brand/logo";
+import { ArcLightLockup, MatchStateMark } from "@/components/brand/logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buttonVariants } from "@/components/ui/button";
@@ -336,8 +336,8 @@ function PublicHeader() {
   return (
     <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link href="/" aria-label="RIEL.GG home">
-          <RielLockup height={28} />
+        <Link href="/" aria-label="ArcLight home">
+          <ArcLightLockup height={28} />
         </Link>
         <div className="flex items-center gap-2">
           <Link
@@ -365,7 +365,7 @@ function PublicFooter({ slug, leagueName }: { slug: string; leagueName: string }
   return (
     <footer className="border-t border-border/60 bg-background/40 py-8">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 text-[11px] text-muted-foreground">
-        <p>Powered by RIEL.GG · {leagueName}</p>
+        <p>Powered by ArcLight · {leagueName}</p>
         <div className="flex flex-wrap gap-4">
           <Link href={`/league/${slug}`} className="hover:text-foreground">
             League home

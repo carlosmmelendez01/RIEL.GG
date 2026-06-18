@@ -22,10 +22,10 @@ import type { ReactNode } from "react";
 
 // Inline-ish brand colors so we don't pull anything from globals.css
 const BRAND = {
-  crimson: "#A31F34",
-  crimsonDeep: "#871423",
-  gold: "#FFCC00",
-  bg: "#0A0A0B",
+  crimson: "#7227FF",
+  crimsonDeep: "#4B0FC2",
+  gold: "#10DFF1",
+  bg: "#03040F",
   fg: "#FFFFFF",
   cardBg: "#171719",
   border: "#2A2A2E",
@@ -81,7 +81,7 @@ export function EmailLayout({
                   letterSpacing: "-0.02em",
                 }}
               >
-                RIEL<span style={{ color: BRAND.gold }}>.GG</span>
+                Arc<span style={{ color: BRAND.gold }}>Light</span>
               </Text>
             </Section>
             <Section style={{ padding: "28px" }}>{children}</Section>
@@ -96,7 +96,7 @@ export function EmailLayout({
                 }}
               >
                 You received this email because a coach or league admin acted on a school,
-                roster, or match you&apos;re tied to on RIEL.GG. Replies go to your league
+                roster, or match you&apos;re tied to on ArcLight. Replies go to your league
                 office.
               </Text>
             </Section>

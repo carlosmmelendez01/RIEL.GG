@@ -51,7 +51,7 @@ export async function submitFeedback(input: {
     select: { id: true },
   });
 
-  const referenceId = `RIEL-${row.id.slice(-6).toUpperCase()}`;
+  const referenceId = `ARC-${row.id.slice(-6).toUpperCase()}`;
 
   // Best-effort email — never blocks or fails the submission.
   if (env.FEEDBACK_EMAIL) {

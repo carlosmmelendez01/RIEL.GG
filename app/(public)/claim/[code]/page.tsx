@@ -25,7 +25,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClaimButton } from "@/components/invite/claim-button";
 import { ClaimLeagueButton } from "@/components/invite/claim-league-button";
@@ -80,8 +80,8 @@ export default async function ClaimPage({
     <div className="bg-system flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
           {user ? (
             <Link href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground">
@@ -344,7 +344,7 @@ function LeagueReadyToClaimCard({
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           You&apos;re about to become {/^[aeiou]/.test(roleWord) ? "an" : "a"} {roleWord} of this
-          league on RIEL.GG.
+          league on ArcLight.
         </p>
       </CardHeader>
       <CardContent className="space-y-5 text-[13px]">
@@ -579,7 +579,7 @@ function ReadyToClaimCard({
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           You&apos;re about to become the {role.toLowerCase()}
-          {invite.grantsOwnership ? " — and owner" : ""} of this school on RIEL.GG.
+          {invite.grantsOwnership ? " — and owner" : ""} of this school on ArcLight.
         </p>
       </CardHeader>
       <CardContent className="space-y-5 text-[13px]">

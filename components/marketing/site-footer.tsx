@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { EmailSignup } from "@/components/marketing/email-signup";
 
 const COL_PLATFORM = [
@@ -50,7 +50,7 @@ export function SiteFooter() {
         <div className="grid gap-12 md:grid-cols-12">
           {/* Brand + signup */}
           <div className="space-y-5 md:col-span-5">
-            <RielLockup height={26} />
+            <ArcLightLockup height={26} />
             <p className="max-w-sm text-[13px] leading-relaxed text-muted-foreground">
               The home of scholastic esports. Built for schools, coaches, and players who want
               competitive gaming to mean something.
@@ -67,7 +67,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-6 text-[11px] text-muted-foreground">
-          <p>© {new Date().getFullYear()} RIEL.GG. The home of scholastic esports.</p>
+          <p>© {new Date().getFullYear()} ArcLight. The home of scholastic esports.</p>
           <div className="flex items-center gap-5">
             <a className="hover:text-foreground" href="/terms">
               Terms

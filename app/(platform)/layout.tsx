@@ -8,7 +8,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { isPlatformAdmin } from "@/lib/auth/platform";
 
 export const metadata: Metadata = {
-  title: { default: "Platform", template: "%s · RIEL.GG Platform" },
+  title: { default: "Platform", template: "%s · ArcLight Platform" },
 };
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {

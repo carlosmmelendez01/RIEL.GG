@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, CircleAlert } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,8 +21,8 @@ export function AgreementPageShell({
     <div className="bg-system flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
           <Link href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground">
             Dashboard

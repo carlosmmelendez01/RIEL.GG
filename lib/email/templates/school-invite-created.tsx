@@ -76,5 +76,5 @@ export function schoolInviteCreatedText(args: {
 
 Accept here: ${args.claimUrl}
 
-— RIEL.GG`;
+— ArcLight`;
 }

@@ -32,7 +32,7 @@ export default function PlatformMembersPage() {
     <>
       <PlatformTopbar
         title="Members"
-        eyebrow={`RIEL.GG internal team · ${active} active · ${invited} pending invite`}
+        eyebrow={`ArcLight internal team · ${active} active · ${invited} pending invite`}
       />
 
       <main className="flex-1 space-y-6 px-6 py-6 md:px-8">
@@ -82,7 +82,7 @@ export default function PlatformMembersPage() {
           <CardContent className="flex items-start gap-3 p-4">
             <Users className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--brand-purple)]" />
             <div>
-              <p className="text-[13px] font-semibold">RIEL.GG internal access</p>
+              <p className="text-[13px] font-semibold">ArcLight internal access</p>
               <p className="mt-1 text-[12px] text-muted-foreground">
                 Members listed here have platform-level access — they can see across all tenant leagues. League-scoped
                 admins (e.g., HEA staff) live under <span className="font-mono">/platform/owners</span> instead.

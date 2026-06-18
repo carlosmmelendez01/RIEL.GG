@@ -60,7 +60,7 @@ export default function GlobalError({
           </div>
 
           <h1 style={{ fontSize: 24, fontWeight: 600, marginTop: 24, letterSpacing: "-0.02em" }}>
-            RIEL.GG hit a snag.
+            ArcLight hit a snag.
           </h1>
           <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "#94a3b8" }}>
             We&apos;ve logged the issue automatically. You can try again here, or email{" "}

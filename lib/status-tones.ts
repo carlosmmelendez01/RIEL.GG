@@ -1,5 +1,5 @@
 /**
- * RIEL.GG state-color system.
+ * ArcLight state-color system.
  *
  * Canonical mapping:
  *  - LIVE       → Red (crimson)         system is "powered on"

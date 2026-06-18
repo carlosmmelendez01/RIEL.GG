@@ -57,5 +57,5 @@ export function rosterApprovedText(args: {
 
 Open team: ${args.teamUrl}
 
-— RIEL.GG`;
+— ArcLight`;
 }

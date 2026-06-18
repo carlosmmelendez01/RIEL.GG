@@ -208,10 +208,22 @@ Sign in as a coach (`rpatel@hse.k12.in.us` for the demo). Routes under `/dashboa
 3. Status shows **Pending** until the league admin approves it.
 
 ### C4. Build your roster
-1. On the team page, under the roster, **add a player** by email.
-   - If they don't have an account yet, use **Invite to the school** → send them
-     the link; they sign in, then you add them.
-2. Manage assistant coaches + players from **School** (`/dashboard/school`):
+1. On the team page, under the competition roster, choose either:
+   - **Add player** to add one existing account by email.
+   - **Import CSV** to add or update as many as 50 players at once.
+2. For CSV import, download the in-app template and keep this header row:
+   `full_name,email,in_game_name,role,starter`.
+   - `full_name` and `email` are required.
+   - `in_game_name` is optional and can contain the student's IGN, Riot ID,
+     gamertag, or player handle.
+   - `role` is `PLAYER` or `CAPTAIN`; a blank value becomes `PLAYER`.
+   - `starter` is `yes` or `no`; a blank value becomes `yes`.
+   - Export the finished spreadsheet as a UTF-8 `.csv` file before uploading.
+3. RIEL previews every row before import. Fix any highlighted row errors, then
+   select **Import players**. Existing roster members are updated; new students
+   receive email-locked school invitations and must sign in with that email. If
+   email delivery is not configured, copy the claim links shown after import.
+4. Manage assistant coaches + players from **School** (`/dashboard/school`):
    **Invite someone**, copy the link or send by email, and **Revoke** invites.
 
 ### C5. Report a match score

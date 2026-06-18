@@ -14,7 +14,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -32,7 +32,7 @@ export default async function Home() {
     <div className="bg-system flex min-h-screen flex-col">
       <header className="border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <RielLockup height={30} />
+          <ArcLightLockup height={30} />
           <ThemeToggle variant="subtle" />
         </div>
       </header>
@@ -45,7 +45,7 @@ export default async function Home() {
           </span>
 
           <h1 className="mt-5 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
-            League management for the Indiana Esports Network.
+            Scholastic esports, organized and illuminated.
           </h1>
           <p className="mx-auto mt-3 max-w-sm text-balance text-[14px] leading-relaxed text-muted-foreground">
             Run competitions, schedules, rosters, and playoffs in one place.
@@ -84,7 +84,7 @@ export default async function Home() {
       </main>
 
       <footer className="border-t border-border/60 px-6 py-5 text-center text-[11px] text-muted-foreground">
-        RIEL.GG · Built for the Indiana Esports Network
+        ArcLight · Built for the Indiana Esports Network
       </footer>
     </div>
   );

@@ -65,7 +65,7 @@ export function ProfileHero({
           aria-hidden
           className="absolute right-6 top-1/2 -translate-y-1/2 select-none text-7xl font-black uppercase tracking-tight text-foreground/8 md:text-8xl"
         >
-          {(user.schoolShortName ?? user.schoolName ?? "RIEL").slice(0, 7)}
+          {(user.schoolShortName ?? user.schoolName ?? "ArcLight").slice(0, 7)}
         </p>
         {/* Bottom fade */}
         <div

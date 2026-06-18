@@ -1,5 +1,5 @@
 /**
- * Supported games — the single source of truth for which titles RIEL.GG
+ * Supported games — the single source of truth for which titles ArcLight
  * offers. Every game dropdown, the seed, and create-time validation read
  * from this list. To add/remove a title for the league, edit here.
  *

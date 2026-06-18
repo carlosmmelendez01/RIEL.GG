@@ -156,7 +156,7 @@ export async function GET(
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "content-disposition": `attachment; filename=\"riel-student-export-${fileSafeName || userId}.json\"`,
+      "content-disposition": `attachment; filename=\"arclight-student-export-${fileSafeName || userId}.json\"`,
       "cache-control": "private, no-store, max-age=0",
       "x-content-type-options": "nosniff",
     },

@@ -1,5 +1,5 @@
 /**
- * Platform-level mock data — RIEL.GG as a multi-tenant platform.
+ * Platform-level mock data — ArcLight as a multi-tenant platform.
  * Each `League` here is a customer / tenant (HEA, Esports Ohio, etc.).
  */
 

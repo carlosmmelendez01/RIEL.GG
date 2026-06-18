@@ -26,7 +26,7 @@ export function LeagueOwnerInvite({
   claimUrl: string;
   expiresAt: Date;
 }) {
-  const preview = `You've been made the owner of ${leagueName} on RIEL.GG.`;
+  const preview = `You've been made the owner of ${leagueName} on ArcLight.`;
   const expires = expiresAt.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -37,7 +37,7 @@ export function LeagueOwnerInvite({
     <EmailLayout preview={preview}>
       <H1>{leagueName} is ready for you.</H1>
       <Body14>
-        {provisionedByName} provisioned {leagueName} on RIEL.GG and named you its
+        {provisionedByName} provisioned {leagueName} on ArcLight and named you its
         owner. Click below to sign in and take control — you&apos;ll be able to
         approve schools, create competitions, and run your seasons.
       </Body14>
@@ -60,11 +60,11 @@ export function leagueOwnerInviteText(args: {
   leagueName: string;
   claimUrl: string;
 }): string {
-  return `${args.provisionedByName} made you the owner of ${args.leagueName} on RIEL.GG.
+  return `${args.provisionedByName} made you the owner of ${args.leagueName} on ArcLight.
 
 Claim it here: ${args.claimUrl}
 
-— RIEL.GG`;
+— ArcLight`;
 }
 
 /**
@@ -95,7 +95,7 @@ export function LeagueAdminInvite({
     <EmailLayout preview={preview}>
       <H1>You&apos;re invited to {leagueName}.</H1>
       <Body14>
-        {invitedByName} added you to {leagueName} on RIEL.GG as {roleLabel}. Click below
+        {invitedByName} added you to {leagueName} on ArcLight as {roleLabel}. Click below
         to sign in and join the league staff.
       </Body14>
       <PrimaryButton href={claimUrl}>Accept invitation</PrimaryButton>
@@ -118,9 +118,9 @@ export function leagueAdminInviteText(args: {
   roleLabel: string;
   claimUrl: string;
 }): string {
-  return `${args.invitedByName} invited you to ${args.leagueName} as ${args.roleLabel} on RIEL.GG.
+  return `${args.invitedByName} invited you to ${args.leagueName} as ${args.roleLabel} on ArcLight.
 
 Accept here: ${args.claimUrl}
 
-— RIEL.GG`;
+— ArcLight`;
 }

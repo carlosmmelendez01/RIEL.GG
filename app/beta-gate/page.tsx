@@ -12,7 +12,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { KeyRound, Lock } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function BetaGatePage({
@@ -29,8 +29,8 @@ export default async function BetaGatePage({
     <div className="bg-system flex min-h-screen flex-col">
       <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" className="flex items-center" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
           <span className="rounded-md border border-[color:var(--brand-gold)]/40 bg-[color:var(--brand-gold)]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--brand-gold)]">
             Private beta
@@ -44,7 +44,7 @@ export default async function BetaGatePage({
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--brand-crimson)]/30 bg-[color:var(--brand-crimson)]/10 text-[color:var(--brand-crimson)]">
               <Lock className="h-5 w-5" />
             </div>
-            <CardTitle className="text-2xl tracking-tight">RIEL.GG is in private beta</CardTitle>
+            <CardTitle className="text-2xl tracking-tight">ArcLight is in private beta</CardTitle>
             <p className="text-sm text-muted-foreground">
               Enter the access password you were given to continue.
             </p>

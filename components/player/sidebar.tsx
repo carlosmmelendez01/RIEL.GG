@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { RielIcon } from "@/components/brand/logo";
+import { ArcLightIcon } from "@/components/brand/logo";
 import { BetaBadge } from "@/components/brand/beta-badge";
 import { cn } from "@/lib/utils";
 
@@ -85,8 +85,8 @@ export function PlayerSidebar({
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-border/60 bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:flex">
       {/* Logo + identity */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border/60 px-5">
-        <Link href="/me" aria-label="RIEL.GG home">
-          <RielIcon size={32} />
+        <Link href="/me" aria-label="ArcLight home">
+          <ArcLightIcon size={32} />
         </Link>
         <BetaBadge />
       </div>
@@ -163,7 +163,7 @@ export function PlayerSidebar({
           />
           <div className="relative">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--brand-crimson)]">
-              RIEL Mobile App
+              ArcLight Mobile App
             </p>
             <p className="mt-1 text-[12px] leading-snug text-foreground">
               Your journey.

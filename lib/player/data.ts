@@ -352,7 +352,7 @@ export async function loadPlayerProfile(userId: string): Promise<PlayerProfile |
     return {
       id: c.id,
       authorName: c.author?.fullName ?? "AI Insight",
-      authorRole: c.kind === "AI" ? "RIEL Insights" : c.kind === "RECRUITER" ? "College Coach" : "Coach",
+      authorRole: c.kind === "AI" ? "ArcLight Insights" : c.kind === "RECRUITER" ? "College Coach" : "Coach",
       kind: c.kind,
       body: c.body,
       matchSummary:

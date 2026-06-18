@@ -12,7 +12,7 @@ import { loadSchoolAgreementStatus } from "@/lib/compliance/agreements";
 import { prisma } from "@/lib/db/prisma";
 
 export const metadata: Metadata = {
-  title: "School Agreement · RIEL.GG",
+  title: "School Agreement · ArcLight",
 };
 
 export default async function SchoolAgreementPage({
@@ -47,7 +47,7 @@ export default async function SchoolAgreementPage({
     <AgreementPageShell
       eyebrow="School authorization"
       title={schoolName}
-      body="Before school managers can continue, RIEL.GG needs a school participation and student data authorization acceptance on file."
+      body="Before school managers can continue, ArcLight needs a school participation and student data authorization acceptance on file."
     >
       {!membership || membership.role !== "MANAGER" ? (
         <AgreementBlocked

@@ -227,7 +227,7 @@ export function buildPlayerFeed(args: {
       id: "p-goal",
       kind: "goal-update",
       author: {
-        name: "RIEL Goals",
+        name: "ArcLight Highlights",
         handle: "rielgoals",
         initials: "RG",
         avatarTone: AVATAR_TONES.purple,

@@ -89,5 +89,5 @@ export function forfeitSubmittedText(args: {
 
 View match: ${args.matchUrl}
 
-— RIEL.GG`;
+— ArcLight`;
 }

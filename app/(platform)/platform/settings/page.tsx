@@ -24,7 +24,7 @@ export default function PlatformSettingsPage() {
     <>
       <PlatformTopbar
         title="Platform settings"
-        eyebrow="Configuration that applies to RIEL.GG itself, not to individual leagues"
+        eyebrow="Configuration that applies to ArcLight itself, not to individual leagues"
       />
 
       <main className="flex-1 px-6 py-6 md:px-8">
@@ -178,7 +178,7 @@ function GeneralSection() {
       icon={Globe2}
     >
       <Field label="Platform name" hint="Shown in browser tabs and emails.">
-        <Input defaultValue="RIEL.GG" />
+        <Input defaultValue="ArcLight" />
       </Field>
       <Field label="Primary domain" hint="Tenant subdomains live under this root.">
         <Input defaultValue="riel.gg" className="font-mono" />
@@ -211,7 +211,7 @@ function BrandingSection() {
     <Section
       id="branding"
       title="Branding"
-      description="Default RIEL.GG identity. Tenant leagues override their own branding separately."
+      description="Default ArcLight identity. Tenant leagues override their own branding separately."
       icon={Palette}
     >
       <Field label="Primary color" hint="Used in CTAs, accent edges, and live indicators.">
@@ -248,8 +248,8 @@ function EmailSection() {
       description="Outbound mail configuration and templates."
       icon={Mail}
     >
-      <Field label="From name" hint='Appears as the sender, e.g. "RIEL.GG Notifications".'>
-        <Input defaultValue="RIEL.GG" />
+      <Field label="From name" hint='Appears as the sender, e.g. "ArcLight Notifications".'>
+        <Input defaultValue="ArcLight" />
       </Field>
       <Field label="From address" hint="Outbound email is sent from this address.">
         <Input defaultValue="hello@riel.gg" type="email" />
@@ -278,7 +278,7 @@ function NotificationsSection() {
     <Section
       id="notifications"
       title="Platform notifications"
-      description="When RIEL.GG itself emails you (the platform team) about events across leagues."
+      description="When ArcLight itself emails you (the platform team) about events across leagues."
       icon={Bell}
     >
       <ToggleRow label="New league created" hint="When a new tenant onboards." enabled />
@@ -297,10 +297,10 @@ function SecuritySection() {
     <Section
       id="security"
       title="Security"
-      description="Auth and access controls for RIEL.GG staff (not tenant league users)."
+      description="Auth and access controls for ArcLight staff (not tenant league users)."
       icon={Shield}
     >
-      <ToggleRow label="Require SSO for staff" hint="All RIEL.GG members must sign in via Google Workspace." enabled />
+      <ToggleRow label="Require SSO for staff" hint="All ArcLight members must sign in via Google Workspace." enabled />
       <ToggleRow label="Mandatory 2FA" hint="Hardware key or TOTP required after SSO." enabled />
       <ToggleRow label="Session timeout" hint="Auto-sign-out after 12h of inactivity." enabled />
       <Field label="IP allowlist" hint="Comma-separated CIDRs. Leave blank to allow all.">

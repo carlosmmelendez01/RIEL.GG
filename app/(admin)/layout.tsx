@@ -9,7 +9,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { findPendingLeagueAgreement } from "@/lib/compliance/agreements";
 
 export const metadata: Metadata = {
-  title: { default: "Admin", template: "%s · RIEL.GG Admin" },
+  title: { default: "Admin", template: "%s · ArcLight Admin" },
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

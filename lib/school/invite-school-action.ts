@@ -169,7 +169,7 @@ export async function inviteSchoolToLeague(
   const claimUrl = emailUrl(`/claim/${inviteCode}`);
   await sendEmail({
     to: contactEmail,
-    subject: `${user.fullName} invited ${data.schoolName} to ${ctx.league.name} on RIEL.GG`,
+    subject: `${user.fullName} invited ${data.schoolName} to ${ctx.league.name} on ArcLight`,
     react: SchoolInviteCreated({
       inviterName: user.fullName,
       schoolName: data.schoolName,

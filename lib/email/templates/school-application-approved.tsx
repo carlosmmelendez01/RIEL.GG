@@ -66,5 +66,5 @@ ${args.leagueName} approved your application — ${args.schoolName} is in.
 
 Claim your school: ${args.claimUrl}
 
-— RIEL.GG`;
+— ArcLight`;
 }

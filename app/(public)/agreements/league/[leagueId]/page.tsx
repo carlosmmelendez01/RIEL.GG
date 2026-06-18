@@ -12,7 +12,7 @@ import { loadLeagueAgreementStatus } from "@/lib/compliance/agreements";
 import { prisma } from "@/lib/db/prisma";
 
 export const metadata: Metadata = {
-  title: "League Agreement · RIEL.GG",
+  title: "League Agreement · ArcLight",
 };
 
 export default async function LeagueAgreementPage({

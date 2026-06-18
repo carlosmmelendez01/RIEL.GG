@@ -5,7 +5,7 @@ import { HelpLauncher } from "@/components/support/help-launcher";
 import { getViewer } from "@/lib/auth/viewer";
 
 export const metadata: Metadata = {
-  title: { default: "My profile", template: "%s · RIEL.GG" },
+  title: { default: "My profile", template: "%s · ArcLight" },
 };
 
 /**

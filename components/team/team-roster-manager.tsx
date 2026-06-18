@@ -21,6 +21,7 @@ import {
   CircleAlert,
   Copy,
   Crown,
+  FileSpreadsheet,
   Link2,
   Lock,
   Mail,
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RosterCsvImportDialog } from "@/components/team/roster-csv-import";
 import {
   createSchoolInvite,
   type CreateSchoolInviteResult,
@@ -238,7 +240,11 @@ function RosterCard({
       <CardContent className="space-y-3">
         <MemberList roster={roster} />
         {!roster.editLocked ? (
-          <AddPlayerForm rosterId={roster.rosterId} schoolId={team.schoolId} />
+          <RosterEntryMethods
+            rosterId={roster.rosterId}
+            schoolId={team.schoolId}
+            competitionName={roster.competitionName}
+          />
         ) : (
           <p className="rounded-md border border-border/60 bg-background/40 p-2.5 text-[11px] text-muted-foreground">
             <Lock className="mr-1 inline h-3 w-3" />
@@ -351,6 +357,73 @@ function MemberRow({
         <span className="text-[11px] text-[color:var(--brand-crimson)]">{error}</span>
       ) : null}
     </li>
+  );
+}
+
+// --- Roster entry methods ----------------------------------------------
+
+function RosterEntryMethods({
+  rosterId,
+  schoolId,
+  competitionName,
+}: {
+  rosterId: string;
+  schoolId: string;
+  competitionName: string;
+}) {
+  const [mode, setMode] = useState<"FORM" | "CSV">("FORM");
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="inline-flex rounded-md border border-border/60 bg-muted/40 p-0.5"
+        role="group"
+        aria-label="Roster entry method"
+      >
+        <button
+          type="button"
+          aria-pressed={mode === "FORM"}
+          onClick={() => setMode("FORM")}
+          className={cn(
+            "inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[11px] font-medium transition-colors",
+            mode === "FORM"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <UserPlus className="h-3 w-3" />
+          Add one player
+        </button>
+        <button
+          type="button"
+          aria-pressed={mode === "CSV"}
+          onClick={() => setMode("CSV")}
+          className={cn(
+            "inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[11px] font-medium transition-colors",
+            mode === "CSV"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <FileSpreadsheet className="h-3 w-3" />
+          Import CSV
+        </button>
+      </div>
+
+      {mode === "FORM" ? (
+        <AddPlayerForm rosterId={rosterId} schoolId={schoolId} />
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
+          <div>
+            <p className="text-[12px] font-semibold">Add or update several players</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Download the template, preview every row, then import up to 50 players.
+            </p>
+          </div>
+          <RosterCsvImportDialog rosterId={rosterId} competitionName={competitionName} />
+        </div>
+      )}
+    </div>
   );
 }
 

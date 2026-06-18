@@ -146,7 +146,7 @@ export function HowItWorks() {
             How it works
           </p>
           <h2 className="text-balance text-3xl font-semibold tracking-tight md:text-4xl">
-            How RIEL.GG works
+            How ArcLight works
           </h2>
           <div
             aria-hidden
@@ -259,7 +259,7 @@ export function WhySchools() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="mb-12 text-center">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--brand-purple)]">
-            Why schools love RIEL.GG
+            Why schools love ArcLight
           </p>
           <h2 className="text-balance text-3xl font-semibold tracking-tight md:text-4xl">
             Built by educators, for educators
@@ -302,7 +302,7 @@ const TESTIMONIALS: Array<{
 }> = [
   {
     quote:
-      "RIEL.GG turned a season's worth of spreadsheets into thirty minutes of setup. We onboarded forty-one schools in our first month.",
+      "ArcLight turned a season's worth of spreadsheets into thirty minutes of setup. We onboarded forty-one schools in our first month.",
     name: "Jamie Holcomb",
     role: "Hoosier Esports Alliance",
     initials: "JH",
@@ -424,7 +424,7 @@ export function FinalCta() {
                 Ready to level up your program?
               </h2>
               <p className="mt-2 max-w-xl text-balance text-[14px] text-muted-foreground md:text-base">
-                Join hundreds of schools competing on RIEL.GG. Onboarding is free and takes about 30
+                Join hundreds of schools competing on ArcLight. Onboarding is free and takes about 30
                 minutes.
               </p>
             </div>

@@ -52,7 +52,7 @@ export default function PlatformAuditPage() {
     <>
       <PlatformTopbar
         title="Audit log"
-        eyebrow={`Tamper-evident record of every state-changing action across RIEL.GG · ${AUDIT_EVENTS.length} events shown`}
+        eyebrow={`Tamper-evident record of every state-changing action across ArcLight · ${AUDIT_EVENTS.length} events shown`}
       />
 
       <main className="flex-1 space-y-6 px-6 py-6 md:px-8">

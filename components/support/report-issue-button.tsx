@@ -88,10 +88,10 @@ function ReportIssueDialog({
   }
 
   const supportSubject = encodeURIComponent(
-    `[RIEL.GG] Help — ${context.route}${context.errorDigest ? ` (${context.errorDigest})` : ""}`,
+    `[ArcLight] Help — ${context.route}${context.errorDigest ? ` (${context.errorDigest})` : ""}`,
   );
   const supportBody = encodeURIComponent(
-    `Hi RIEL team,\n\nI hit an issue on ${context.route}.\n${
+    `Hi ArcLight team,\n\nI hit an issue on ${context.route}.\n${
       context.errorDigest ? `Reference: ${context.errorDigest}\n` : ""
     }\nWhat happened:\n`,
   );
@@ -171,7 +171,7 @@ function ReportIssueDialog({
                   className="inline-flex items-center gap-1.5 rounded-md bg-[color:var(--brand-crimson)] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[color:var(--brand-crimson-deep)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Send className="h-3 w-3" />
-                  {pending ? "Sending…" : "Send to RIEL"}
+                  {pending ? "Sending…" : "Send to ArcLight"}
                 </button>
               </div>
             </div>
@@ -208,4 +208,3 @@ function SuccessState({ referenceId, onClose }: { referenceId: string; onClose: 
     </div>
   );
 }
-

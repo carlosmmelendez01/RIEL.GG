@@ -40,7 +40,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* RIEL.GG brand palette */
+  /* ArcLight brand palette (legacy token names remain for compatibility). */
   --color-brand-crimson: var(--brand-crimson);
   --color-brand-crimson-deep: var(--brand-crimson-deep);
   --color-brand-gold: var(--brand-gold);
@@ -59,33 +59,37 @@
 }
 
 /*
- * RIEL.GG — Theme tokens.
+ * ArcLight — theme tokens.
  *
- * Brand palette is theme-invariant (crimson / gold / purple stay the same
+ * Brand palette is theme-invariant (violet / cyan stay the same
  * across modes). Surface tokens (background / card / muted / border) flip
  * between light and dark — next-themes toggles a `.dark` class on <html>
  * which overrides the `:root` light defaults below.
  */
 :root {
   /* --- Brand (constant across modes) --- */
-  --brand-crimson: oklch(0.4555 0.1734 19.27);     /* #A31F34 */
-  --brand-crimson-deep: oklch(0.36 0.155 19);
-  --brand-gold: oklch(0.853 0.1717 91.67);         /* #FFCC00 — bright; see --brand-gold-ink for light-bg text */
-  --brand-gold-ink: oklch(0.6 0.18 76);            /* darker gold for readable text on white */
-  --brand-purple: oklch(0.6094 0.2734 322.31);     /* #C026D3 — accent magenta */
-  --brand-aubergine: #2a0431;
-  --brand-ink: oklch(0.0986 0 0);                  /* #0A0A0A — the brand black */
-  --brand-onyx: oklch(0.16 0 0);
+  --brand-violet: #7227ff;
+  --brand-violet-deep: #4b0fc2;
+  --brand-cyan: #10dff1;
+  --brand-cyan-ink: #078897;
+  --brand-ink: #03040f;
+  --brand-onyx: #0a0b1a;
+  --brand-aubergine: #1c0938;
 
-  /* --- New logo palette (from the gradient R mark) --- */
-  --brand-red: #c8102e;                            /* logo red */
-  --brand-magenta: #d12fff;                        /* logo magenta */
-  --brand-violet: #6a00ff;                         /* logo violet */
-  /* Left-to-right gradient that mirrors the R mark. */
+  /* Compatibility aliases keep existing components on the new palette. */
+  --brand-crimson: var(--brand-violet);
+  --brand-crimson-deep: var(--brand-violet-deep);
+  --brand-gold: var(--brand-cyan);
+  --brand-gold-ink: var(--brand-cyan-ink);
+  --brand-purple: #a948ff;
+  --brand-red: var(--brand-violet);
+  --brand-magenta: #a948ff;
+
+  /* Cyan-to-violet sweep from the ArcLight mark. */
   --brand-gradient: linear-gradient(
     100deg,
-    var(--brand-red) 0%,
-    var(--brand-magenta) 50%,
+    var(--brand-cyan) 0%,
+    var(--brand-magenta) 52%,
     var(--brand-violet) 100%
   );
 
@@ -213,7 +217,7 @@
     color: transparent;
   }
 
-  /* Logo wordmark gradient — mirrors the gradient R mark. */
+  /* Logo wordmark gradient — mirrors the ArcLight mark. */
   .text-gradient-logo {
     background: var(--brand-gradient);
     -webkit-background-clip: text;
@@ -230,7 +234,7 @@
   }
 
   /*
-   * Ambient app background — a near-invisible crimson radial wash + faint
+   * Ambient app background — a near-invisible violet radial wash + faint
    * grid layered over the body. Removes the "flat black" feel without
    * being noticeable on its own. Applied via .bg-system on a parent element.
    */
@@ -245,8 +249,8 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(ellipse 1200px 600px at 50% -10%, oklch(0.4555 0.1734 19.27 / 8%), transparent 60%),
-      radial-gradient(ellipse 800px 500px at 100% 100%, oklch(0.4555 0.1734 19.27 / 4%), transparent 60%),
+      radial-gradient(ellipse 1200px 600px at 50% -10%, color-mix(in srgb, var(--brand-violet) 9%, transparent), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 100% 100%, color-mix(in srgb, var(--brand-cyan) 5%, transparent), transparent 60%),
       linear-gradient(to right, var(--grid-line) 1px, transparent 1px) 0 0 / 64px 64px,
       linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px) 0 0 / 64px 64px;
     mask-image: radial-gradient(ellipse at 50% 30%, black 40%, transparent 90%);
@@ -256,7 +260,7 @@
   /*
    * Gradient-only ambient background — for player-facing surfaces (/me).
    * Same logic as .bg-system but without the grid lines, with richer
-   * crimson + purple radial washes. Feels more "consumer" / social.
+   * violet + cyan radial washes. Feels more "consumer" / social.
    */
   .bg-system-gradient {
     position: relative;
@@ -269,29 +273,29 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(ellipse 1100px 700px at 18% -10%, oklch(0.4555 0.1734 19.27 / 18%), transparent 65%),
-      radial-gradient(ellipse 900px 600px at 90% 8%, oklch(0.5854 0.2531 318.36 / 14%), transparent 65%),
-      radial-gradient(ellipse 800px 600px at 50% 110%, oklch(0.4555 0.1734 19.27 / 10%), transparent 65%),
-      radial-gradient(ellipse 700px 500px at 100% 90%, oklch(0.5854 0.2531 318.36 / 8%), transparent 65%),
+      radial-gradient(ellipse 1100px 700px at 18% -10%, color-mix(in srgb, var(--brand-violet) 20%, transparent), transparent 65%),
+      radial-gradient(ellipse 900px 600px at 90% 8%, color-mix(in srgb, var(--brand-cyan) 15%, transparent), transparent 65%),
+      radial-gradient(ellipse 800px 600px at 50% 110%, color-mix(in srgb, var(--brand-violet) 11%, transparent), transparent 65%),
+      radial-gradient(ellipse 700px 500px at 100% 90%, color-mix(in srgb, var(--brand-cyan) 9%, transparent), transparent 65%),
       linear-gradient(180deg, oklch(0.18 0.01 260 / 0%) 0%, oklch(0.18 0.01 260 / 25%) 100%);
   }
 
   /* Activation glow — for primary CTAs that "activate" the system */
   .glow-crimson {
     box-shadow:
-      0 0 0 1px oklch(0.4555 0.1734 19.27 / 30%),
+      0 0 0 1px color-mix(in srgb, var(--brand-violet) 30%, transparent),
       0 4px 12px -2px oklch(0.18 0.01 260 / 25%),
-      0 16px 36px -8px oklch(0.4555 0.1734 19.27 / 45%),
+      0 16px 36px -8px color-mix(in srgb, var(--brand-violet) 45%, transparent),
       0 30px 80px -20px var(--brand-crimson);
   }
 
   .glow-crimson-sm {
     box-shadow:
-      0 0 0 1px oklch(0.4555 0.1734 19.27 / 24%),
-      0 8px 20px -4px oklch(0.4555 0.1734 19.27 / 32%);
+      0 0 0 1px color-mix(in srgb, var(--brand-violet) 24%, transparent),
+      0 8px 20px -4px color-mix(in srgb, var(--brand-violet) 32%, transparent);
   }
 
-  /* Card edge accent — subtle red top-edge gradient for "live" cards */
+  /* Card edge accent — subtle violet top-edge gradient for "live" cards */
   .edge-crimson {
     position: relative;
   }
@@ -305,20 +309,20 @@
     pointer-events: none;
   }
 
-  /* Pulsing crimson — for "live" indicators on the system */
+  /* Pulsing violet — legacy class name retained for compatibility. */
   .pulse-crimson {
-    animation: riel-pulse-crimson 2.4s ease-in-out infinite;
+    animation: arclight-pulse 2.4s ease-in-out infinite;
   }
-  @keyframes riel-pulse-crimson {
+  @keyframes arclight-pulse {
     0%, 100% {
       box-shadow:
-        0 0 0 0 oklch(0.4555 0.1734 19.27 / 50%),
-        0 0 18px -2px oklch(0.4555 0.1734 19.27 / 40%);
+        0 0 0 0 color-mix(in srgb, var(--brand-violet) 50%, transparent),
+        0 0 18px -2px color-mix(in srgb, var(--brand-violet) 40%, transparent);
     }
     50% {
       box-shadow:
-        0 0 0 6px oklch(0.4555 0.1734 19.27 / 0%),
-        0 0 28px 0 oklch(0.4555 0.1734 19.27 / 65%);
+        0 0 0 6px color-mix(in srgb, var(--brand-violet) 0%, transparent),
+        0 0 28px 0 color-mix(in srgb, var(--brand-violet) 65%, transparent);
     }
   }
 
@@ -327,7 +331,7 @@
     transition: box-shadow 200ms ease, border-color 200ms ease;
   }
   .hover-edge-crimson:hover {
-    border-color: oklch(0.4555 0.1734 19.27 / 50%);
-    box-shadow: 0 0 0 1px oklch(0.4555 0.1734 19.27 / 25%), 0 8px 24px -8px oklch(0.4555 0.1734 19.27 / 35%);
+    border-color: color-mix(in srgb, var(--brand-violet) 50%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-violet) 25%, transparent), 0 8px 24px -8px color-mix(in srgb, var(--brand-violet) 35%, transparent);
   }
 }

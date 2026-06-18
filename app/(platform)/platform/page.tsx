@@ -38,7 +38,7 @@ export default function PlatformOverviewPage() {
     <>
       <PlatformTopbar
         title="Platform overview"
-        eyebrow={`RIEL.GG · ${PLATFORM_TOTALS.totalLeagues} leagues across ${PLATFORM_TOTALS.totalSchools} schools`}
+        eyebrow={`ArcLight · ${PLATFORM_TOTALS.totalLeagues} leagues across ${PLATFORM_TOTALS.totalSchools} schools`}
       />
 
       <main className="flex-1 space-y-8 px-6 py-6 md:px-8">

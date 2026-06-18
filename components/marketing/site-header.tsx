@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { RielIcon } from "@/components/brand/logo";
+import { ArcLightIcon } from "@/components/brand/logo";
 import { BetaBadge } from "@/components/brand/beta-badge";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
@@ -21,8 +21,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <Link href="/" className="flex items-center gap-2" aria-label="RIEL.GG home">
-          <RielIcon size={40} />
+        <Link href="/" className="flex items-center gap-2" aria-label="ArcLight home">
+          <ArcLightIcon size={40} />
           <BetaBadge />
         </Link>
 

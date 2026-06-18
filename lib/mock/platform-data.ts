@@ -335,7 +335,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
 ];
 
 // =====================================================================
-// RIEL.GG STAFF — internal team
+// ArcLight STAFF — internal team
 // =====================================================================
 
 export type StaffRole = "FOUNDER" | "ADMIN" | "ENGINEER" | "SUPPORT" | "DESIGN" | "SALES";

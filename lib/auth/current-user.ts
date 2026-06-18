@@ -144,10 +144,10 @@ function deriveInitials(fullName: string): string {
  * Convenience role string for the topbar subtitle:
  *   "RIEL · League Admin"
  *   "MCHS Wolves · Head Coach"
- *   "RIEL.GG · Platform Owner"
+ *   "ArcLight · Platform Owner"
  */
 export async function getRoleSubtitle(mode: "platform" | "admin" | "coach"): Promise<string> {
-  if (mode === "platform") return "RIEL.GG · Platform Owner";
+  if (mode === "platform") return "ArcLight · Platform Owner";
 
   if (mode === "admin") {
     const ctx = await getCurrentLeagueContext();

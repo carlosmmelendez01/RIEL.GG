@@ -27,7 +27,7 @@ const COPY: Record<
   { eyebrow: string; title: string; body: string; primary?: { label: string; href: string }; secondary?: { label: string; href: string } }
 > = {
   "no-school": {
-    eyebrow: "Welcome to RIEL.GG",
+    eyebrow: "Welcome to ArcLight",
     title: "You're not linked to a school yet.",
     body: "Once your school is approved by your league office, you'll see your teams, matches, and standings here.",
     primary: { label: "Apply your school", href: "/join" },

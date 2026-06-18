@@ -61,5 +61,5 @@ Reason: ${args.reason}
 
 Fix and resubmit: ${args.teamUrl}
 
-— RIEL.GG`;
+— ArcLight`;
 }

@@ -24,11 +24,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "RIEL.GG — System Activated. Competition Elevated.",
-    template: "%s · RIEL.GG",
+    default: "ArcLight — Competition, illuminated.",
+    template: "%s · ArcLight",
   },
   description:
-    "RIEL.GG is the Regional Interscholastic Esports League, a premium competition platform built for educators, coaches, and players.",
+    "ArcLight is a scholastic esports competition platform built for educators, coaches, and players.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
 };
 

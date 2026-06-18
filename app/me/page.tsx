@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Crown, LockKeyhole, Trophy, UserRound, Users } from "lucide-react";
 
-import { RielIcon } from "@/components/brand/logo";
+import { ArcLightIcon } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -46,8 +46,8 @@ export default async function PlayerHomePage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-6 backdrop-blur-xl">
-        <Link href="/me" aria-label="RIEL.GG" className="flex items-center gap-2">
-          <RielIcon size={30} />
+        <Link href="/me" aria-label="ArcLight" className="flex items-center gap-2">
+          <ArcLightIcon size={30} />
           <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             My profile
           </span>
@@ -255,7 +255,7 @@ function NoTeamsState({ fullName }: { fullName: string }) {
         <UserRound className="h-7 w-7" />
       </div>
       <h1 className="mt-5 text-balance text-2xl font-semibold tracking-tight">
-        Welcome to RIEL.GG, {fullName.split(" ")[0]}
+        Welcome to ArcLight, {fullName.split(" ")[0]}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
         You&apos;re not on a team roster yet. Once your coach adds you to a roster, your matches and
@@ -288,7 +288,7 @@ function ConsentRequiredState({
         Consent required before player access, {fullName.split(" ")[0]}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Your school needs to record FERPA/COPPA authorization before RIEL.GG can show player
+        Your school needs to record FERPA/COPPA authorization before ArcLight can show player
         surfaces or enable match participation actions for your account.
       </p>
       <div className="mt-5 w-full space-y-2 text-left">

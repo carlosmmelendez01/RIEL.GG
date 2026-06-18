@@ -155,7 +155,7 @@ export async function createLeagueInvite(
   const claimUrl = emailUrl(`/claim/${code}`);
   await sendEmail({
     to: intendedEmail,
-    subject: `${user.fullName} invited you to help run ${ctx.league.name} on RIEL.GG`,
+    subject: `${user.fullName} invited you to help run ${ctx.league.name} on ArcLight`,
     react: LeagueAdminInvite({
       invitedByName: user.fullName,
       leagueName: ctx.league.name,

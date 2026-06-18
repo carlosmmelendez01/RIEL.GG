@@ -4,7 +4,7 @@ import { LegalSection as Section, LegalShell } from "@/components/legal/legal-sh
 
 export const metadata: Metadata = {
   title: "School Data Privacy Addendum",
-  description: "RIEL.GG beta school data privacy addendum template.",
+  description: "ArcLight beta school data privacy addendum template.",
 };
 
 export default function DpaPage() {
@@ -22,21 +22,21 @@ export default function DpaPage() {
       </Section>
       <Section title="Purpose">
         <p>
-          RIEL.GG processes student data only to provide school esports league operations,
+          ArcLight processes student data only to provide school esports league operations,
           including roster management, scheduling, match operations, score reporting, standings,
           support, security, and audit logs.
         </p>
       </Section>
       <Section title="School official / service provider">
         <p>
-          RIEL.GG acts under the school or league&apos;s direction for authorized educational use.
-          RIEL.GG does not own student records and will not redisclose them except to approved
+          ArcLight acts under the school or league&apos;s direction for authorized educational use.
+          ArcLight does not own student records and will not redisclose them except to approved
           subprocessors or as legally required.
         </p>
       </Section>
       <Section title="Authorization record">
         <p>
-          RIEL.GG records league and school agreement acceptances by agreement version. School
+          ArcLight records league and school agreement acceptances by agreement version. School
           records may indicate direct school authorization, coverage under a league master
           agreement, or a school requirement for parent/guardian consent.
         </p>
@@ -57,7 +57,7 @@ export default function DpaPage() {
       </Section>
       <Section title="Security">
         <p>
-          RIEL.GG uses role-scoped access, school/league tenancy checks, audit logs, authenticated
+          ArcLight uses role-scoped access, school/league tenancy checks, audit logs, authenticated
           routes, and limited student data collection. Production use should include monitoring,
           rate limiting, backup review, and incident response procedures.
         </p>

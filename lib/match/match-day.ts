@@ -336,7 +336,7 @@ export async function loadMatchChat(
       return {
         id: msg.id,
         body: msg.body,
-        authorName: isSystem ? "RIEL League Office" : msg.author?.fullName ?? "Unknown",
+        authorName: isSystem ? "ArcLight League Office" : msg.author?.fullName ?? "Unknown",
         authorInitials: isSystem
           ? "RL"
           : initialsOf(msg.author?.fullName ?? "??"),

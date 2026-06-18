@@ -16,7 +16,7 @@ import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
 import { loadLeagueResourceManager } from "@/lib/league/resources";
 
 export const metadata = {
-  title: "Resources · Admin · RIEL.GG",
+  title: "Resources · Admin · ArcLight",
 };
 
 export default async function AdminResourcesPage() {

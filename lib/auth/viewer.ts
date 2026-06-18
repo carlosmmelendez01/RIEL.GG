@@ -63,7 +63,7 @@ export const getViewer = cache(async (): Promise<ViewerInfo | null> => {
     subtitle: {
       coach: coachSubtitle,
       admin: activeAdminSubtitle,
-      platform: "RIEL.GG · Platform Owner",
+      platform: "ArcLight · Platform Owner",
     },
     canView: {
       coach: !!schoolMembership,

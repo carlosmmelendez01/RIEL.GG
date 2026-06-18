@@ -9,7 +9,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { ResourceList } from "@/components/league/resource-list";
 import { buttonVariants } from "@/components/ui/button";
 import { loadPublicLeagueResources } from "@/lib/league/resources";
@@ -22,9 +22,9 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const data = await loadPublicLeagueResources(slug);
-  if (!data) return { title: "Resources · RIEL.GG" };
+  if (!data) return { title: "Resources · ArcLight" };
   return {
-    title: `${data.league.name} Resources · RIEL.GG`,
+    title: `${data.league.name} Resources · ArcLight`,
     description: `Rules and resources for ${data.league.name}.`,
   };
 }
@@ -91,8 +91,8 @@ function PublicHeader() {
   return (
     <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link href="/" aria-label="RIEL.GG home">
-          <RielLockup height={28} />
+        <Link href="/" aria-label="ArcLight home">
+          <ArcLightLockup height={28} />
         </Link>
         <div className="flex items-center gap-2">
           <Link

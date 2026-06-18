@@ -179,7 +179,7 @@ export default function CreateLeaguePage() {
               setPrimaryColor={setPrimaryColor}
               secondaryColor={secondaryColor}
               setSecondaryColor={setSecondaryColor}
-              shortName={computedShort || "RIEL"}
+              shortName={computedShort || "LEAGUE"}
               name={name || "Your League"}
             />
           ) : null}
@@ -307,7 +307,7 @@ function ProvisionSuccess({
             <p className="text-[14px] font-semibold">League provisioned.</p>
             <p className="text-[13px] text-muted-foreground">
               {result.ownerAttached
-                ? `${result.ownerEmail} already had a RIEL.GG account and is now the league owner — they'll see it under their admin dashboard.`
+                ? `${result.ownerEmail} already had a ArcLight account and is now the league owner — they'll see it under their admin dashboard.`
                 : `We created the league and issued an owner invite to ${result.ownerEmail}. Send them the claim link below so they can sign in and take ownership.`}
             </p>
           </div>

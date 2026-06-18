@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -163,8 +163,8 @@ export function JoinWizard({ leagues }: { leagues: JoinLeagueOption[] }) {
     <div className="bg-system flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
           <Link href="/" className="text-xs text-muted-foreground hover:text-foreground">
             Already a member? Sign in
@@ -697,8 +697,8 @@ function Submitted({
     <div className="bg-system flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
         </div>
       </header>

@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,8 +20,8 @@ export default function JoinPage() {
     <div className="bg-system flex min-h-screen flex-col">
       <header className="border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" aria-label="RIEL.GG home">
-            <RielLockup height={30} />
+          <Link href="/" aria-label="ArcLight home">
+            <ArcLightLockup height={30} />
           </Link>
           <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground">
             Sign in
@@ -39,7 +39,7 @@ export default function JoinPage() {
               Invite-only
             </p>
             <h1 className="text-balance text-2xl font-semibold tracking-tight">
-              RIEL.GG is invite-only right now.
+              ArcLight is invite-only right now.
             </h1>
             <p className="max-w-sm text-balance text-[13px] leading-relaxed text-muted-foreground">
               We&apos;re onboarding schools to the Indiana Esports Network directly. Reach out

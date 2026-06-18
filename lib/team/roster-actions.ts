@@ -8,6 +8,8 @@
  *   - `registerTeamForCompetition`     → new Roster (PENDING) under a Team
  *   - `addPlayerToRoster`              → finds an existing User by email +
  *                                        attaches as RosterMembership
+ *   - `importRosterCsv`                → validates and imports up to 50 players,
+ *                                        creating targeted invites as needed
  *   - `removePlayerFromRoster`         → drops a RosterMembership
  *
  * Admin surface:
@@ -29,6 +31,11 @@ import { isSupportedGame } from "@/lib/games/supported";
 import { emailUrl, sendEmail } from "@/lib/email/send";
 import { RosterApproved, rosterApprovedText } from "@/lib/email/templates/roster-approved";
 import { RosterRejected, rosterRejectedText } from "@/lib/email/templates/roster-rejected";
+import {
+  SchoolInviteCreated,
+  schoolInviteCreatedText,
+} from "@/lib/email/templates/school-invite-created";
+import { generateInviteCode } from "@/lib/invite/helpers";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
 import { loadSchoolAgreementStatus } from "@/lib/compliance/agreements";
 
@@ -408,7 +415,7 @@ export async function addPlayerToRoster(
   if (!player) {
     return {
       ok: false,
-      error: `No account found for ${email}. The player has to sign up first — invites are coming next sprint.`,
+      error: `No account found for ${email}. Invite them to the school, then add them after they claim access.`,
     };
   }
 
@@ -473,7 +480,300 @@ export async function addPlayerToRoster(
   return { ok: true, membershipId: membership.id };
 }
 
-// --- 4. removePlayerFromRoster ----------------------------------------
+// --- 4. importRosterCsv -----------------------------------------------
+
+const CsvRosterRow = z.object({
+  sourceRow: z.number().int().min(2).max(1_001),
+  fullName: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(254),
+  inGameName: z.string().trim().max(80).optional(),
+  role: z.enum(["PLAYER", "CAPTAIN"]),
+  isStarter: z.boolean(),
+});
+
+const ImportRosterCsvInput = z.object({
+  rosterId: z.string().min(1),
+  rows: z.array(CsvRosterRow).min(1).max(50),
+});
+
+export type RosterCsvImportRow = z.infer<typeof CsvRosterRow>;
+
+export type ImportRosterCsvResult =
+  | {
+      ok: true;
+      added: number;
+      updated: number;
+      invited: number;
+      invitations: {
+        email: string;
+        url: string;
+        delivery: "SENT" | "NOT_CONFIGURED" | "FAILED";
+      }[];
+    }
+  | {
+      ok: false;
+      error: string;
+      rowErrors?: { sourceRow: number; field: string; message: string }[];
+    };
+
+export async function importRosterCsv(input: {
+  rosterId: string;
+  rows: RosterCsvImportRow[];
+}): Promise<ImportRosterCsvResult> {
+  const parsed = ImportRosterCsvInput.safeParse(input);
+  if (!parsed.success) {
+    const rowErrors = parsed.error.issues.flatMap((issue) => {
+      const rowIndex = typeof issue.path[1] === "number" ? issue.path[1] : null;
+      if (rowIndex === null) return [];
+      const sourceRow = input.rows[rowIndex]?.sourceRow ?? rowIndex + 2;
+      return [{
+        sourceRow,
+        field: String(issue.path[2] ?? "row"),
+        message: issue.message,
+      }];
+    });
+    return {
+      ok: false,
+      error: rowErrors.length > 0 ? "Some CSV rows are invalid." : "Invalid CSV import.",
+      rowErrors: rowErrors.length > 0 ? rowErrors : undefined,
+    };
+  }
+
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "You need to be signed in." };
+
+  const roster = await prisma.roster.findUnique({
+    where: { id: parsed.data.rosterId },
+    select: {
+      id: true,
+      editLock: true,
+      team: {
+        select: {
+          id: true,
+          schoolId: true,
+          school: { select: { name: true } },
+        },
+      },
+      competition: {
+        select: { id: true, season: { select: { leagueId: true } } },
+      },
+    },
+  });
+  if (!roster) return { ok: false, error: "Roster not found." };
+
+  const coach = await requireSchoolCoach(user.id, roster.team.schoolId);
+  if (!coach) {
+    return { ok: false, error: "Only the school's coach or manager can import a roster." };
+  }
+  if (!(await requireSchoolAgreement(roster.team.schoolId))) {
+    return {
+      ok: false,
+      error: "A school manager must accept the school agreement before changing rosters.",
+    };
+  }
+  if (roster.editLock === "LOCKED") {
+    return {
+      ok: false,
+      error: "Roster is locked for this competition — contact a league admin to make changes.",
+    };
+  }
+
+  const rows = parsed.data.rows.map((row) => ({
+    ...row,
+    email: row.email.trim().toLowerCase(),
+    fullName: row.fullName.trim(),
+    inGameName: row.inGameName?.trim() || null,
+  }));
+
+  const seenEmails = new Set<string>();
+  const duplicateErrors: { sourceRow: number; field: string; message: string }[] = [];
+  for (const row of rows) {
+    if (seenEmails.has(row.email)) {
+      duplicateErrors.push({
+        sourceRow: row.sourceRow,
+        field: "email",
+        message: "This email appears more than once in the CSV.",
+      });
+    }
+    seenEmails.add(row.email);
+  }
+  if (duplicateErrors.length > 0) {
+    return { ok: false, error: "Remove duplicate player emails and try again.", rowErrors: duplicateErrors };
+  }
+
+  const emails = rows.map((row) => row.email);
+  const [existingUsers, existingMemberships] = await Promise.all([
+    prisma.user.findMany({
+      where: { email: { in: emails } },
+      select: { id: true, email: true },
+    }),
+    prisma.rosterMembership.findMany({
+      where: { rosterId: roster.id, user: { email: { in: emails } } },
+      select: { user: { select: { email: true } } },
+    }),
+  ]);
+  const usersByEmail = new Map(existingUsers.map((player) => [player.email.toLowerCase(), player]));
+  const rosteredEmails = new Set(
+    existingMemberships.map((membership) => membership.user.email.toLowerCase()),
+  );
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1_000);
+
+  const imported = await prisma.$transaction(
+    async (tx) => {
+      const invites: { email: string; code: string }[] = [];
+      let added = 0;
+      let updated = 0;
+
+      for (const row of rows) {
+        let player = usersByEmail.get(row.email);
+        if (!player) {
+          player = await tx.user.create({
+            data: {
+              authId: `csv:${crypto.randomUUID()}`,
+              email: row.email,
+              fullName: row.fullName,
+            },
+            select: { id: true, email: true },
+          });
+          usersByEmail.set(row.email, player);
+
+          const code = generateInviteCode();
+          await tx.invite.create({
+            data: {
+              code,
+              scope: "SCHOOL",
+              schoolId: roster.team.schoolId,
+              createdById: user.id,
+              rolesGranted: ["PLAYER"],
+              grantsOwnership: false,
+              intendedEmail: row.email,
+              maxUses: 1,
+              expiresAt,
+              status: "ACTIVE",
+            },
+          });
+          invites.push({ email: row.email, code });
+        }
+
+        await tx.schoolMembership.upsert({
+          where: {
+            schoolId_userId: { schoolId: roster.team.schoolId, userId: player.id },
+          },
+          update: { detached: false },
+          create: {
+            schoolId: roster.team.schoolId,
+            userId: player.id,
+            role: "PLAYER",
+          },
+        });
+
+        await tx.studentConsent.upsert({
+          where: {
+            studentUserId_schoolId: {
+              studentUserId: player.id,
+              schoolId: roster.team.schoolId,
+            },
+          },
+          update: {},
+          create: {
+            studentUserId: player.id,
+            schoolId: roster.team.schoolId,
+            status: "PENDING",
+            ageBand: "UNKNOWN",
+          },
+        });
+
+        await tx.rosterMembership.upsert({
+          where: { rosterId_userId: { rosterId: roster.id, userId: player.id } },
+          update: {
+            role: row.role,
+            inGameName: row.inGameName,
+            isStarter: row.isStarter,
+          },
+          create: {
+            rosterId: roster.id,
+            userId: player.id,
+            role: row.role,
+            inGameName: row.inGameName,
+            isStarter: row.isStarter,
+          },
+        });
+
+        if (rosteredEmails.has(row.email)) updated += 1;
+        else added += 1;
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          action: "ROSTER.IMPORT_CSV",
+          entityType: "Roster",
+          entityId: roster.id,
+          after: {
+            rowCount: rows.length,
+            added,
+            updated,
+            invited: invites.length,
+          },
+          leagueId: roster.competition.season.leagueId,
+          competitionId: roster.competition.id,
+          schoolId: roster.team.schoolId,
+        },
+      });
+
+      return { added, updated, invites };
+    },
+    { maxWait: 5_000, timeout: 20_000 },
+  );
+
+  const invitationResults = await Promise.all(
+    imported.invites.map(async (invite) => {
+      const claimUrl = emailUrl(`/claim/${invite.code}`);
+      const emailResult = await sendEmail({
+        to: invite.email,
+        subject: `${user.fullName} added you to ${roster.team.school.name} on ArcLight`,
+        react: SchoolInviteCreated({
+          inviterName: user.fullName,
+          schoolName: roster.team.school.name,
+          role: "PLAYER",
+          claimUrl,
+          expiresAt,
+          grantsOwnership: false,
+        }),
+        text: schoolInviteCreatedText({
+          inviterName: user.fullName,
+          schoolName: roster.team.school.name,
+          role: "player",
+          claimUrl,
+        }),
+        tags: [
+          { name: "kind", value: "roster_csv_invite" },
+          { name: "school_id", value: roster.team.schoolId },
+        ],
+      });
+      return {
+        email: invite.email,
+        url: claimUrl,
+        delivery: !emailResult.ok
+          ? "FAILED" as const
+          : emailResult.provider === "console"
+            ? "NOT_CONFIGURED" as const
+            : "SENT" as const,
+      };
+    }),
+  );
+
+  revalidateCoachSurfaces(roster.team.id);
+  return {
+    ok: true,
+    added: imported.added,
+    updated: imported.updated,
+    invited: imported.invites.length,
+    invitations: invitationResults,
+  };
+}
+
+// --- 5. removePlayerFromRoster ----------------------------------------
 
 const RemovePlayerInput = z.object({
   membershipId: z.string().min(1),
@@ -558,7 +858,7 @@ export async function removePlayerFromRoster(
   return { ok: true };
 }
 
-// --- 5. approveRoster (admin) -----------------------------------------
+// --- 6. approveRoster (admin) -----------------------------------------
 
 const ApproveRosterInput = z.object({
   rosterId: z.string().min(1),
@@ -677,7 +977,7 @@ export async function approveRoster(
   return { ok: true, rosterId };
 }
 
-// --- 6. rejectRoster (admin) ------------------------------------------
+// --- 7. rejectRoster (admin) ------------------------------------------
 
 const RejectRosterInput = z.object({
   rosterId: z.string().min(1),

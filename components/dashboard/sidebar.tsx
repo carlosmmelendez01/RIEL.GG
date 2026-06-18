@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Building2, Calendar, FileText, Users, Trophy } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { RielIcon } from "@/components/brand/logo";
+import { ArcLightIcon } from "@/components/brand/logo";
 import { BetaBadge } from "@/components/brand/beta-badge";
 import { cn } from "@/lib/utils";
 
@@ -45,8 +45,8 @@ export function Sidebar() {
   return (
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-border/60 bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:flex">
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border/60 px-5">
-        <Link href="/dashboard" aria-label="RIEL.GG dashboard">
-          <RielIcon size={34} />
+        <Link href="/dashboard" aria-label="ArcLight dashboard">
+          <ArcLightIcon size={34} />
         </Link>
         <BetaBadge />
       </div>
@@ -107,7 +107,7 @@ export function Sidebar() {
             Beta
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            You&apos;re previewing RIEL.GG. Spot something off? Use the Feedback button.
+            You&apos;re previewing ArcLight. Spot something off? Use the Feedback button.
           </p>
         </div>
       </div>

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -85,8 +85,8 @@ export function PlatformSidebar() {
   return (
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-border/60 bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:flex">
       <div className="flex h-16 items-center border-b border-sidebar-border/60 px-5">
-        <Link href="/platform" aria-label="RIEL.GG platform">
-          <RielLockup />
+        <Link href="/platform" aria-label="ArcLight platform">
+          <ArcLightLockup />
         </Link>
       </div>
 
@@ -94,7 +94,7 @@ export function PlatformSidebar() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           Platform
         </p>
-        <p className="mt-1 truncate text-sm font-semibold">RIEL.GG</p>
+        <p className="mt-1 truncate text-sm font-semibold">ArcLight</p>
         <p className="truncate text-[11px] text-muted-foreground">Multi-tenant operator</p>
       </div>
 
@@ -162,7 +162,7 @@ export function PlatformSidebar() {
             Platform Mode
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            You&apos;re managing the entire RIEL.GG platform across all tenant leagues.
+            You&apos;re managing the entire ArcLight platform across all tenant leagues.
           </p>
         </div>
       </div>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, CircleAlert, Loader2, Mail, Sparkles } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,8 +29,8 @@ function LoginShell() {
     <div className="bg-system flex min-h-screen flex-col">
       <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" className="flex items-center" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
         </div>
       </header>
@@ -95,8 +95,8 @@ function LoginInner() {
     <div className="bg-system flex min-h-screen flex-col">
       <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" className="flex items-center" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
           <Link href="/join" className="text-xs text-muted-foreground hover:text-foreground">
             New here? Apply your school
@@ -115,7 +115,7 @@ function LoginInner() {
                   Sign in
                 </p>
                 <CardTitle className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight">
-                  Welcome back to RIEL.GG
+                  Welcome back to ArcLight
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Sign in with your school account, or get a magic link by email.
@@ -217,7 +217,7 @@ function LoginInner() {
           )}
 
           <p className="mt-6 text-center text-[11px] text-muted-foreground">
-            By signing in you agree to RIEL.GG&apos;s{" "}
+            By signing in you agree to ArcLight&apos;s{" "}
             <Link href="/terms" className="underline hover:text-foreground">
               Terms
             </Link>{" "}

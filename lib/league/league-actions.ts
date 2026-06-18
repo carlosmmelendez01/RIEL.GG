@@ -185,7 +185,7 @@ export async function createLeague(
     const claimUrl = emailUrl(`/claim/${code}`);
     await sendEmail({
       to: ownerEmail,
-      subject: `You're the owner of ${result.name} on RIEL.GG`,
+      subject: `You're the owner of ${result.name} on ArcLight`,
       react: LeagueOwnerInvite({
         provisionedByName: user.fullName,
         leagueName: result.name,

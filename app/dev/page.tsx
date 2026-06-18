@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/db/prisma";
 import { demoAuthEnabled } from "@/lib/auth/demo";
@@ -106,8 +106,8 @@ export default async function DemoSignInIndex() {
     <div className="bg-system flex min-h-screen flex-col">
       <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center" aria-label="RIEL.GG home">
-            <RielLockup />
+          <Link href="/" className="flex items-center" aria-label="ArcLight home">
+            <ArcLightLockup />
           </Link>
           <span className="rounded-md border border-[color:var(--brand-gold)]/40 bg-[color:var(--brand-gold)]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--brand-gold)]">
             Demo mode
@@ -118,7 +118,7 @@ export default async function DemoSignInIndex() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
         <div className="mb-6">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Try RIEL.GG
+            Try ArcLight
           </p>
           <h1 className="mt-1 text-balance text-3xl font-semibold tracking-tight">
             Pick a demo account

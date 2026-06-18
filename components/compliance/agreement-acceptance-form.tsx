@@ -47,7 +47,7 @@ const SCHOOL_CHECKBOXES: RequirementItem[] = [
   },
   {
     key: "terms",
-    label: "I have read and agree to the RIEL.GG Terms of Service.",
+    label: "I have read and agree to the ArcLight Terms of Service.",
     reviewLabel: "Open terms",
     reviewHref: "/terms",
     reviewText:
@@ -55,7 +55,7 @@ const SCHOOL_CHECKBOXES: RequirementItem[] = [
   },
   {
     key: "privacy",
-    label: "I have read and acknowledge the RIEL.GG Privacy Policy.",
+    label: "I have read and acknowledge the ArcLight Privacy Policy.",
     reviewLabel: "Open privacy",
     reviewHref: "/privacy",
     reviewText:
@@ -74,7 +74,7 @@ const SCHOOL_CHECKBOXES: RequirementItem[] = [
     label: "I have reviewed and acknowledge the educational-use limits for student data.",
     reviewLabel: "Review limits",
     reviewText:
-      "Student data in RIEL.GG is for school esports operations: roster eligibility, match operations, standings, communications, safety, support, and audit. It is not for advertising or sale.",
+      "Student data in ArcLight is for school esports operations: roster eligibility, match operations, standings, communications, safety, support, and audit. It is not for advertising or sale.",
   },
   {
     key: "parentConsentResponsibility",
@@ -95,7 +95,7 @@ const LEAGUE_CHECKBOXES: RequirementItem[] = [
   },
   {
     key: "terms",
-    label: "I have read and agree to the RIEL.GG Terms of Service.",
+    label: "I have read and agree to the ArcLight Terms of Service.",
     reviewLabel: "Open terms",
     reviewHref: "/terms",
     reviewText:
@@ -103,7 +103,7 @@ const LEAGUE_CHECKBOXES: RequirementItem[] = [
   },
   {
     key: "privacy",
-    label: "I have read and acknowledge the RIEL.GG Privacy Policy.",
+    label: "I have read and acknowledge the ArcLight Privacy Policy.",
     reviewLabel: "Open privacy",
     reviewHref: "/privacy",
     reviewText:

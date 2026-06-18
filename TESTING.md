@@ -56,7 +56,9 @@ Do these roughly in order. It's a chain: each step sets up the next.
 
 6. **Register a team** — `Teams → open your League of Legends team →
    Register for a competition`. Pick the admin's new competition.
-7. **Manage your roster** — add/remove players, invite someone to the school.
+7. **Manage your roster** — add/remove players, then try **Import CSV** using
+   the downloadable template. Confirm invalid rows are explained before import
+   and that missing accounts receive targeted school invitations.
 8. **Report a score** — `Schedule → open a match → submit the final score`.
    It moves to *Awaiting confirmation*.
 9. **Confirm a score** — sign in as the *opposing* coach (e.g.

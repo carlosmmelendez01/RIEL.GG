@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { loadPublicLeague, type PublicLeagueSchool, type PublicLeagueSeason } from "@/lib/public/league";
@@ -203,8 +203,8 @@ function PublicHeader() {
   return (
     <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link href="/" aria-label="RIEL.GG home">
-          <RielLockup height={28} />
+        <Link href="/" aria-label="ArcLight home">
+          <ArcLightLockup height={28} />
         </Link>
         <div className="flex items-center gap-2">
           <Link

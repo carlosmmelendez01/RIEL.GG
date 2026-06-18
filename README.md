@@ -1,4 +1,4 @@
-# RIEL OS
+# ArcLight
 
 > **System Activated. Competition Elevated.**
 > The custom league management platform for the **Hoosier Esports Alliance (HEA)**.

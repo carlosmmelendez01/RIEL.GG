@@ -18,7 +18,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { loadCoachResources } from "@/lib/league/resources";
 
 export const metadata = {
-  title: "Resources · RIEL.GG",
+  title: "Resources · ArcLight",
 };
 
 export default async function DashboardResourcesPage() {

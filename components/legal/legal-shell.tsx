@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { RielLockup } from "@/components/brand/logo";
+import { ArcLightLockup } from "@/components/brand/logo";
 
 export function LegalShell({
   title,
@@ -18,8 +18,8 @@ export function LegalShell({
     <div className="bg-system min-h-screen">
       <header className="border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-6">
-          <Link href="/" aria-label="RIEL.GG home">
-            <RielLockup height={28} />
+          <Link href="/" aria-label="ArcLight home">
+            <ArcLightLockup height={28} />
           </Link>
           <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground">
             Sign in

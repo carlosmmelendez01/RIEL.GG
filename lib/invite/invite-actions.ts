@@ -576,7 +576,7 @@ export async function createSchoolInvite(
       const claimUrl = emailUrl(`/claim/${code}`);
       await sendEmail({
         to: normalizedEmail,
-        subject: `${user.fullName} invited you to ${school.name} on RIEL.GG`,
+        subject: `${user.fullName} invited you to ${school.name} on ArcLight`,
         react: SchoolInviteCreated({
           inviterName: user.fullName,
           schoolName: school.name,

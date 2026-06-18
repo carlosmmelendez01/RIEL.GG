@@ -52,9 +52,8 @@ export function Hero({
             </h1>
 
             <p className="mt-6 max-w-xl text-balance text-lg text-muted-foreground md:text-xl">
-              The Regional Interscholastic Esports League (RIEL) connects high schools, players,
-              and communities through competitive esports that build skills, sportsmanship, and
-              opportunity.
+              ArcLight connects schools, leagues, players, and communities through competitive
+              esports that build skills, sportsmanship, and opportunity.
             </p>
 
             <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row">

@@ -30,8 +30,16 @@ const serverSchema = z.object({
   // Where in-app feedback is delivered. Falls back to RESEND_FROM_ADDRESS's
   // implied inbox if unset; we just won't email if neither is configured.
   FEEDBACK_EMAIL: z.string().email().optional(),
-  // Comma-separated allowlist of emails permitted into /platform/*. The
-  // platform pages are still mock data, so we keep them closed by default.
+  // Build-time switch for the /platform/* SaaS-admin surface. Those pages are
+  // still backed by lib/mock/* — fabricated schools, audit rows and tickets —
+  // so they are OFF unless a build explicitly turns them on. The email
+  // allowlist below is a second gate, not the only one.
+  ENABLE_PLATFORM_ADMIN: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
+  // Comma-separated allowlist of emails permitted into /platform/*. Only
+  // consulted when ENABLE_PLATFORM_ADMIN is true.
   PLATFORM_ADMIN_EMAILS: z
     .string()
     .optional()
@@ -70,6 +78,7 @@ const _server = serverSchema.parse({
   DEMO_AUTH_EMAILS: opt(process.env.DEMO_AUTH_EMAILS),
   DEMO_AUTH_PASSWORD: opt(process.env.DEMO_AUTH_PASSWORD),
   BETA_ACCESS_PASSWORD: opt(process.env.BETA_ACCESS_PASSWORD),
+  ENABLE_PLATFORM_ADMIN: opt(process.env.ENABLE_PLATFORM_ADMIN),
   FEEDBACK_EMAIL: opt(process.env.FEEDBACK_EMAIL),
   PLATFORM_ADMIN_EMAILS: opt(process.env.PLATFORM_ADMIN_EMAILS),
 });

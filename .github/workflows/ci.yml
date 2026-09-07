@@ -55,5 +55,25 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      # Migrations in this repo are hand-written, so CI verifies that applying
+      # them produces exactly the schema in schema.prisma. `migrate diff`
+      # exits 2 when there is a difference; anything non-zero fails the build
+      # and prints the SQL that would close the gap.
+      - name: Verify migrations match schema.prisma
+        run: |
+          if npx prisma migrate diff \
+               --from-schema-datasource prisma/schema.prisma \
+               --to-schema-datamodel prisma/schema.prisma \
+               --exit-code; then
+            echo "Schema and migrations agree."
+          else
+            echo "::error::Applied migrations do not match prisma/schema.prisma."
+            npx prisma migrate diff \
+              --from-schema-datasource prisma/schema.prisma \
+              --to-schema-datamodel prisma/schema.prisma \
+              --script
+            exit 1
+          fi
+
       - name: Test
         run: npm run test:run

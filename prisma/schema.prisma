@@ -141,13 +141,35 @@ model School {
   shortName      String?
   code           String? // 3-letter tag for badges (e.g., "MCH")
   city           String?
-  state          String?  @default("IN")
+  // No default. A default of "IN" is an IEN assumption, and RIEL is meant to
+  // run more than one league.
+  state          String?
   primaryColor   String?
   secondaryColor String?
   logoUrl        String?
-  ncesId         String?  @unique // National Center for Education Statistics ID
+  // Legacy single-column NCES id. Superseded by (directorySource, externalId);
+  // retained until every reader is migrated, then dropped.
+  ncesId         String?  @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  // --- Directory identity ---------------------------------------------
+  // Public schools come from the NCES Common Core of Data, private schools
+  // from the Private School Universe Survey, and anything else is entered by
+  // a league admin. Keying on (source, externalId) rather than one nullable
+  // ncesId lets a CCD school and a PSS school coexist, and lets manually
+  // added schools exist without inventing a fake identifier.
+  directorySource    SchoolDirectorySource @default(MANUAL)
+  externalId         String? // NCES school id (CCD) or PPIN (PSS)
+  districtName       String?
+  districtExternalId String? // NCES LEA id
+  streetAddress      String?
+  zip                String?
+  level              SchoolLevel?
+  lowGrade           String? // CCD GSLO, e.g. "07"
+  highGrade          String? // CCD GSHI, e.g. "12"
+  datasetRelease     String? // e.g. "CCD 2025-26 preliminary directory v.0a"
+  importedAt         DateTime?
 
   memberships          SchoolMembership[]
   teams                Team[]
@@ -157,6 +179,106 @@ model School {
   studentConsents      StudentConsent[]
   studentDataRequests  StudentDataRequest[]
   agreementAcceptances AgreementAcceptance[]
+  enrollments          SchoolEnrollment[]
+
+  // Postgres treats NULLs as distinct, so many MANUAL schools with a null
+  // externalId coexist while two CCD rows can never share an NCES id.
+  @@unique([directorySource, externalId])
+  @@index([name])
+  @@index([state, city])
+  @@index([districtExternalId])
+}
+
+enum SchoolDirectorySource {
+  CCD // NCES Common Core of Data - public schools
+  PSS // NCES Private School Universe Survey
+  MANUAL // added by a league admin; labelled as such, never NCES-verified
+}
+
+enum SchoolLevel {
+  ELEMENTARY
+  MIDDLE
+  HIGH
+  OTHER // K-12, ungraded, alternative
+}
+
+// ===========================================================================
+// SCHOOL ENROLLMENT - historical, per school year
+// ---------------------------------------------------------------------------
+// Enrollment is never a mutable number on School. Division classification
+// points at the specific row it was calculated from, so "why is this school
+// 2A?" always has a traceable answer.
+//
+// Two scopes are stored. GRADES_9_12 is the classification input, matching how
+// the IHSAA classifies Indiana schools; TOTAL is kept for display. A league
+// classifying on 9-12 must never silently fall back to TOTAL - that is how a
+// 7-12 building lands in the wrong division.
+// ===========================================================================
+
+enum EnrollmentScope {
+  GRADES_9_12
+  TOTAL
+}
+
+enum EnrollmentSource {
+  NCES_CCD
+  NCES_PSS
+  SCHOOL_REPORTED
+  LEAGUE_ADMIN
+}
+
+model SchoolEnrollment {
+  id             String           @id @default(cuid())
+  schoolId       String
+  school         School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolYear     String // "2024-25"
+  enrollment     Int
+  scope          EnrollmentScope
+  source         EnrollmentSource
+  datasetRelease String? // e.g. "CCD 2024-25 membership v.1a"
+  importedAt     DateTime?
+  verifiedAt     DateTime?
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([schoolId, schoolYear, source, scope])
+  @@index([schoolId, schoolYear])
+}
+
+// ===========================================================================
+// DATASET IMPORT - one row per ingestion run
+// ---------------------------------------------------------------------------
+// Makes imports auditable and safely re-runnable. NCES stamps versions per
+// file, not per release group (the 2024-25 "v.2a" group ships files stamped
+// _1a_), so `release` records the file-level stamp - otherwise a re-import
+// looks identical when it is not.
+// ===========================================================================
+
+enum DatasetImportStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model DatasetImport {
+  id             String                @id @default(cuid())
+  source         SchoolDirectorySource
+  release        String
+  sourceUrl      String?
+  checksum       String?
+  status         DatasetImportStatus   @default(RUNNING)
+  schoolsSeen    Int                   @default(0)
+  schoolsCreated Int                   @default(0)
+  schoolsUpdated Int                   @default(0)
+  enrollmentRows Int                   @default(0)
+  errorCount     Int                   @default(0)
+  errors         Json?
+  startedAt      DateTime              @default(now())
+  finishedAt     DateTime?
+
+  @@unique([source, release])
+  @@index([status, startedAt])
 }
 
 enum SchoolRole {

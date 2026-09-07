@@ -8,6 +8,29 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+
+    # Integration tests run against a throwaway Postgres spun up per job.
+    # This is the project's integration environment: neither a developer's
+    # laptop nor the Supabase project is ever used for tests.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: riel
+          POSTGRES_PASSWORD: riel
+          POSTGRES_DB: riel_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U riel"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://riel:riel@localhost:5432/riel_test
+      DIRECT_URL: postgresql://riel:riel@localhost:5432/riel_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +48,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # Applies every migration in prisma/migrations to the empty service
+      # database. A migration that only works against an already-migrated
+      # database fails here, which is the point.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
 
       - name: Test
         run: npm run test:run

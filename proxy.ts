@@ -16,6 +16,17 @@ const BETA_GATE_ALLOW = ["/beta-gate"];
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
+  // Local auth is much more reliable when the browser sticks to one origin.
+  // `0.0.0.0` is useful as a listen address for the dev server, but it is a
+  // shaky browsing origin for Supabase cookies. Canonicalize it to localhost
+  // in development so /dev sign-in, /platform, and /admin share one cookie jar.
+  const host = request.headers.get("host") ?? "";
+  if (process.env.NODE_ENV !== "production" && host.startsWith("0.0.0.0")) {
+    const canonicalUrl = request.nextUrl.clone();
+    canonicalUrl.hostname = "localhost";
+    return NextResponse.redirect(canonicalUrl);
+  }
+
   // --- Beta access gate -------------------------------------------------
   // Read at request time (not module load) so toggling the env var doesn't
   // require a rebuild. When set, lock everything behind /beta-gate until the

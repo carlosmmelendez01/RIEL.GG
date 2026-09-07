@@ -21,6 +21,17 @@ export const getViewer = cache(async (): Promise<ViewerInfo | null> => {
     orderBy: { createdAt: "asc" },
   });
 
+  // Roster-level coach access also opens the coach dashboard. Keep the mode
+  // switcher aligned with the dashboard resolver so roster coaches don't show
+  // up as "Not on a roster" in the topbar.
+  const rosterMembership = schoolMembership
+    ? null
+    : await prisma.rosterMembership.findFirst({
+        where: { userId: user.id },
+        include: { roster: { include: { team: { include: { school: true } } } } },
+        orderBy: { createdAt: "asc" },
+      });
+
   // League admin context — first LeagueAdminship
   const adminship = await prisma.leagueAdminship.findFirst({
     where: { userId: user.id },
@@ -39,6 +50,16 @@ export const getViewer = cache(async (): Promise<ViewerInfo | null> => {
             ? "Head Coach"
             : "Player"
       }`
+    : rosterMembership
+      ? `${rosterMembership.roster.team.school.shortName ?? rosterMembership.roster.team.school.name} · ${
+          rosterMembership.role === "MANAGER"
+            ? "Manager"
+            : rosterMembership.role === "COACH"
+              ? "Head Coach"
+              : rosterMembership.role === "CAPTAIN"
+                ? "Captain"
+                : "Player"
+        }`
     : "Not on a roster";
 
   const adminSubtitle = adminship
@@ -66,7 +87,7 @@ export const getViewer = cache(async (): Promise<ViewerInfo | null> => {
       platform: "ArcLight · Platform Owner",
     },
     canView: {
-      coach: !!schoolMembership,
+      coach: !!schoolMembership || !!rosterMembership,
       admin: !!adminship,
       platform: isPlatformOwner,
       // Board access — anyone with league admin rights or platform-owner

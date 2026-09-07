@@ -18,11 +18,11 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/db/prisma";
 import { env } from "@/lib/env";
-import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPrimaryLanding } from "@/lib/auth/landing";
 import { demoAuthEnabled, isAllowedDemoEmail } from "@/lib/auth/demo";
 import { safeInternalPath } from "@/lib/security/redirect";
@@ -95,11 +95,23 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 3. Sign in with password using the SSR client. This writes the auth
-  //    cookies onto the response automatically (createClient wires up the
-  //    next/headers cookie store).
-  const supabase = await createClient();
-  const { error: signInErr } = await supabase.auth.signInWithPassword({
+  // 3. Sign in with password using a route-local SSR client. We capture the
+  //    auth cookies Supabase wants to set, then attach them directly to the
+  //    redirect response below. This is more reliable in local dev than
+  //    relying on the implicit next/headers cookie store across redirects.
+  const authCookies: Array<{ name: string; value: string; options: CookieOptions }> = [];
+  const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        authCookies.push(...cookiesToSet);
+      },
+    },
+  });
+
+  const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
     email,
     password: demoPassword,
   });
@@ -111,13 +123,55 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 4. Bridge the seeded User row + resolve role-based landing. We still
-  //    honor an explicit ?next= for deep links.
-  const user = await getCurrentUser();
+  // 4. Bridge the seeded User row + resolve role-based landing. We do this
+  //    from the returned auth user instead of reading cookies again inside
+  //    the same route handler; the browser has not received them yet.
+  const authUser = signInData.user;
+  const authEmail = authUser?.email?.toLowerCase() ?? email;
+
+  let user = authUser?.id
+    ? await prisma.user.findUnique({ where: { authId: authUser.id } })
+    : null;
+
+  if (!user) {
+    const existing = await prisma.user.findUnique({ where: { email: authEmail } });
+    if (existing && authUser?.id) {
+      user = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          authId: authUser.id,
+          fullName:
+            (authUser.user_metadata?.full_name as string | undefined)?.trim() ||
+            existing.fullName,
+          avatarUrl:
+            (authUser.user_metadata?.avatar_url as string | undefined) ?? existing.avatarUrl,
+        },
+      });
+    } else {
+      user = existing;
+    }
+  }
+
+  if (!user && authUser?.id) {
+    user = await prisma.user.create({
+      data: {
+        authId: authUser.id,
+        email: authEmail,
+        fullName:
+          (authUser.user_metadata?.full_name as string | undefined) || authEmail.split("@")[0],
+        avatarUrl: authUser.user_metadata?.avatar_url as string | undefined,
+      },
+    });
+  }
+
   const defaultNext = user ? await getPrimaryLanding(user.id, user.email) : "/me";
   const next = safeInternalPath(explicitNext, defaultNext);
 
-  // 5. Redirect to the target page. The cookies set above will travel with
-  //    the redirect, so the next page sees a real session.
-  return NextResponse.redirect(new URL(next, request.url));
+  // 5. Redirect to the target page. Attach the cookies to this exact response
+  //    so the next page sees a real session immediately.
+  const response = NextResponse.redirect(new URL(next, request.url));
+  for (const { name, value, options } of authCookies) {
+    response.cookies.set(name, value, { ...options, path: options.path ?? "/" });
+  }
+  return response;
 }

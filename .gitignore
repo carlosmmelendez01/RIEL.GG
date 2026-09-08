@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Files Claude could not delete (no delete permission); safe to remove by hand.
+/_to_delete/

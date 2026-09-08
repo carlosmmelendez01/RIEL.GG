@@ -22,7 +22,7 @@ function facts(over: DeepPartial<EligibilityFacts> = {}): EligibilityFacts {
       name: "Example High School",
       verifiedInLeague: true,
       agreementAccepted: true,
-      population: "HIGH_SCHOOL",
+      populations: ["HIGH_SCHOOL"],
       divisionId: "div-1a",
       classificationMissing: false,
     },
@@ -89,12 +89,38 @@ describe("ineligible schools (scenario 9)", () => {
     expect(d.visible).toBe(true);
   });
 
-  it("hides a competition for a different school population", () => {
-    const d = evaluateEligibility(facts({ school: { population: "MIDDLE_SCHOOL" } }));
+  it("hides a competition for a school population this school does not run", () => {
+    const d = evaluateEligibility(facts({ school: { populations: ["MIDDLE_SCHOOL"] } }));
     expect(d.eligible).toBe(false);
     expect(d.reason).toBe("WRONG_SCHOOL_POPULATION");
     // A middle school does not need to be told why it can't enter 2A varsity.
     expect(d.visible).toBe(false);
+  });
+
+  it("lets a 7-12 building enter both middle-school and high-school competitions", () => {
+    // A school spanning both is not an edge case: LeagueOS carries "HS+MS" as
+    // a first-class conference value for exactly this. A single population
+    // field would lock such a school out of one side permanently.
+    const spanning = { school: { populations: ["MIDDLE_SCHOOL", "HIGH_SCHOOL"] as const } };
+
+    const hs = evaluateEligibility(
+      merge(facts(spanning as never), { competition: { population: "HIGH_SCHOOL" } }),
+    );
+    expect(hs.eligible).toBe(true);
+
+    const ms = evaluateEligibility(
+      merge(facts(spanning as never), {
+        competition: { population: "MIDDLE_SCHOOL", divisionId: null },
+      }),
+    );
+    expect(ms.eligible).toBe(true);
+  });
+
+  it("treats an unknown population as permissive rather than blocking", () => {
+    // Standing and division are the real gates. A school with no population
+    // recorded yet should not be silently hidden from everything.
+    const d = evaluateEligibility(facts({ school: { populations: [] } }));
+    expect(d.reason).not.toBe("WRONG_SCHOOL_POPULATION");
   });
 
   it("hides a competition for a different division", () => {

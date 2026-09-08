@@ -79,7 +79,16 @@ export type EligibilityFacts = {
     verifiedInLeague: boolean;
     /** School participation agreement accepted for this school. */
     agreementAccepted: boolean;
-    population: SchoolPopulation | null;
+    /**
+     * Which populations this school may field teams in — not one value.
+     *
+     * A 7-12 building runs both a middle-school and a high-school program, and
+     * a school running a Unified program fields that alongside its others. A
+     * single value would permanently lock such a school out of every
+     * competition except one. Empty means unknown, which is permissive here:
+     * the school's standing and division are what actually gate registration.
+     */
+    populations: SchoolPopulation[];
     /** Effective division for the season, or null if the league doesn't divide this population. */
     divisionId: string | null;
     /** True when the league divides this population but no classification exists yet. */
@@ -154,10 +163,10 @@ export function evaluateEligibility(facts: EligibilityFacts): EligibilityDecisio
     );
   }
 
-  if (school.population !== null && school.population !== competition.population) {
+  if (school.populations.length > 0 && !school.populations.includes(competition.population)) {
     return hidden(
       "WRONG_SCHOOL_POPULATION",
-      `${competition.name} is for ${labelPopulation(competition.population)} programs.`,
+      `${competition.name} is for ${labelPopulation(competition.population)} programs, and ${school.name} does not run one.`,
     );
   }
 

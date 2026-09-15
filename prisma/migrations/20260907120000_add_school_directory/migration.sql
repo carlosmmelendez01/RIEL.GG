@@ -10,6 +10,46 @@ CREATE TYPE "SchoolLevel" AS ENUM ('ELEMENTARY', 'MIDDLE', 'HIGH', 'OTHER');
 CREATE TYPE "EnrollmentScope" AS ENUM ('GRADES_9_12', 'TOTAL');
 CREATE TYPE "EnrollmentSource" AS ENUM ('NCES_CCD', 'NCES_PSS', 'SCHOOL_REPORTED', 'LEAGUE_ADMIN');
 CREATE TYPE "DatasetImportStatus" AS ENUM ('RUNNING', 'COMPLETED', 'FAILED');
+CREATE TYPE "ForfeitReason" AS ENUM ('OPPONENT_NO_SHOW', 'SCHEDULING_CONFLICT', 'INSUFFICIENT_ROSTER', 'TECHNICAL_ISSUES', 'PLAYER_ILLNESS', 'ELIGIBILITY_ISSUE', 'WEATHER_TRAVEL', 'OPPONENT_CONDUCT', 'OTHER');
+
+-- Align the hand-written forfeit migration with the current Prisma schema.
+-- Legacy rows stored the reason as free text; keep any non-enum text in notes
+-- and classify it as OTHER so the type change cannot fail on real data.
+ALTER TABLE "Match" ADD COLUMN     "forfeitNotes" TEXT,
+ADD COLUMN     "rescheduleAttempted" BOOLEAN;
+
+UPDATE "Match"
+SET "forfeitNotes" = 'Legacy forfeit reason: ' || "forfeitReason"
+WHERE "forfeitReason" IS NOT NULL
+  AND "forfeitReason" NOT IN (
+    'OPPONENT_NO_SHOW',
+    'SCHEDULING_CONFLICT',
+    'INSUFFICIENT_ROSTER',
+    'TECHNICAL_ISSUES',
+    'PLAYER_ILLNESS',
+    'ELIGIBILITY_ISSUE',
+    'WEATHER_TRAVEL',
+    'OPPONENT_CONDUCT',
+    'OTHER'
+  );
+
+ALTER TABLE "Match" ALTER COLUMN "forfeitReason" TYPE "ForfeitReason" USING (
+  CASE
+    WHEN "forfeitReason" IN (
+      'OPPONENT_NO_SHOW',
+      'SCHEDULING_CONFLICT',
+      'INSUFFICIENT_ROSTER',
+      'TECHNICAL_ISSUES',
+      'PLAYER_ILLNESS',
+      'ELIGIBILITY_ISSUE',
+      'WEATHER_TRAVEL',
+      'OPPONENT_CONDUCT',
+      'OTHER'
+    ) THEN "forfeitReason"::"ForfeitReason"
+    WHEN "forfeitReason" IS NOT NULL THEN 'OTHER'::"ForfeitReason"
+    ELSE NULL
+  END
+);
 
 -- AlterTable
 ALTER TABLE "School" ADD COLUMN     "directorySource" "SchoolDirectorySource" NOT NULL DEFAULT 'MANUAL',

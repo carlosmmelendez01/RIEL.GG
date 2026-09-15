@@ -277,7 +277,7 @@ model DatasetImport {
   startedAt      DateTime              @default(now())
   finishedAt     DateTime?
 
-  @@unique([source, release])
+  @@index([source, release])
   @@index([status, startedAt])
 }
 

@@ -136,7 +136,7 @@ CREATE UNIQUE INDEX "SchoolEnrollment_schoolId_schoolYear_source_scope_key" ON "
 CREATE INDEX "DatasetImport_status_startedAt_idx" ON "DatasetImport"("status", "startedAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "DatasetImport_source_release_key" ON "DatasetImport"("source", "release");
+CREATE INDEX "DatasetImport_source_release_idx" ON "DatasetImport"("source", "release");
 
 -- AddForeignKey
 ALTER TABLE "SchoolEnrollment" ADD CONSTRAINT "SchoolEnrollment_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "School"("id") ON DELETE CASCADE ON UPDATE CASCADE;

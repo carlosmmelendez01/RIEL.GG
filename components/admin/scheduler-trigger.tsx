@@ -11,6 +11,7 @@
  */
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarCheck,
   CircleAlert,
@@ -45,6 +46,7 @@ export function SchedulerTrigger({
   /** Smaller variant for inline rows. */
   compact?: boolean;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<RunSchedulerResult | null>(null);
 
@@ -53,6 +55,7 @@ export function SchedulerTrigger({
     startTransition(async () => {
       const r = await runScheduler({ competitionId });
       setResult(r);
+      if (r.ok) router.refresh();
     });
   }
 
@@ -127,6 +130,7 @@ function PlayoffButton({
   competitionId: string;
   compact?: boolean;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<GeneratePlayoffResult | null>(null);
 
@@ -135,6 +139,7 @@ function PlayoffButton({
     startTransition(async () => {
       const r = await generatePlayoffRound({ competitionId });
       setResult(r);
+      if (r.ok) router.refresh();
     });
   }
 

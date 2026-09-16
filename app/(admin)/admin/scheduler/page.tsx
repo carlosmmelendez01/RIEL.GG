@@ -7,8 +7,8 @@
  * using the circle method. Already-scheduled stages are locked.
  *
  * A future "AI scheduler" pass will replace this with a constraint solver
- * that respects availability, travel, and matchup history — the surface
- * here is the right home for that, just smarter.
+ * that respects availability, travel, and matchup history. The surface here
+ * is the right home for that, just smarter.
  */
 
 import { redirect } from "next/navigation";
@@ -76,9 +76,9 @@ export default async function AISchedulerPage() {
               </h2>
               <p className="mt-3 max-w-xl text-balance text-[14px] leading-relaxed text-muted-foreground">
                 Pairs every approved roster against every other one using the standard circle
-                method, packed into per-week rounds at your stage&apos;s match interval. Already-
-                scheduled stages stay locked. A future pass adds availability constraints and
-                travel-aware pairing.
+                method, placing rounds weekly when the stage window allows. Already-scheduled
+                stages stay locked. A future pass adds availability constraints and travel-aware
+                pairing.
               </p>
             </div>
             <div className="hidden h-32 w-32 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--brand-gold)]/30 bg-[color:var(--brand-gold)]/10 text-[color:var(--brand-gold)] md:flex">
@@ -99,7 +99,7 @@ export default async function AISchedulerPage() {
             {[
               {
                 title: "Live now: full round-robin",
-                body: "Every approved roster plays every other once. Pairings produced via the circle method, each round one calendar day apart.",
+                body: "Every approved roster plays every other once. Pairings use the circle method, with weekly rounds when the stage window allows.",
               },
               {
                 title: "Live now: single-elim playoffs",

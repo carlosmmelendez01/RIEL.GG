@@ -15,6 +15,7 @@
  */
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   ArrowDown,
@@ -98,6 +99,7 @@ function RegisterCard({
   team: CoachTeamDetail;
   competitionDecisions: CompetitionDecisionRow[];
 }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<string>("");
   const [result, setResult] = useState<RegisterTeamResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -111,7 +113,10 @@ function RegisterCard({
         competitionId: selected,
       });
       setResult(r);
-      if (r.ok) setSelected("");
+      if (r.ok) {
+        setSelected("");
+        router.refresh();
+      }
     });
   }
 
@@ -463,6 +468,7 @@ function MemberRow({
   member: CoachTeamDetail["rosters"][number]["members"][number];
   locked: boolean;
 }) {
+  const router = useRouter();
   const [removed, setRemoved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -472,8 +478,12 @@ function MemberRow({
     setError(null);
     startTransition(async () => {
       const r = await removePlayerFromRoster({ membershipId: member.membershipId });
-      if (r.ok) setRemoved(true);
-      else setError(r.error);
+      if (r.ok) {
+        setRemoved(true);
+        router.refresh();
+      } else {
+        setError(r.error);
+      }
     });
   }
 
@@ -613,6 +623,7 @@ function AddPlayerForm({
   rosterId: string;
   schoolId: string;
 }) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"PLAYER" | "CAPTAIN" | "COACH" | "MANAGER">("PLAYER");
   const [jersey, setJersey] = useState("");
@@ -640,6 +651,7 @@ function AddPlayerForm({
         setEmail("");
         setJersey("");
         setIgn("");
+        router.refresh();
       }
     });
   }

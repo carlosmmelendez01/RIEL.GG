@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { buildRoundRobinPairings, buildRoundSchedule } from "@/lib/competition/scheduler";
 import { prisma } from "@/lib/db/prisma";
 import { isSupportedGame } from "@/lib/games/supported";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
@@ -388,8 +389,8 @@ export type RunSchedulerResult =
  *    season"). Playoff brackets seed later when standings exist.
  *  - Only includes rosters where `registrationStatus = APPROVED`.
  *  - Idempotent: refuses to write if matches already exist for the stage.
- *  - Uses stage.startsAt + N * matchIntervalMinutes as the slot times. No
- *    fancy availability solver yet (that's the future "AI scheduler").
+ *  - Spaces regular-season rounds weekly when the stage window allows, with a
+ *    compressed fallback for short events. No fancy availability solver yet.
  */
 export async function runScheduler(input: { competitionId: string }): Promise<RunSchedulerResult> {
   const parsed = RunSchedulerInput.safeParse(input);
@@ -462,9 +463,12 @@ export async function runScheduler(input: { competitionId: string }): Promise<Ru
     };
   }
 
-  // Build round-robin pairings via the circle method
   const pairings = buildRoundRobinPairings(rosters.map((r) => r.id));
-  // pairings is an array of rounds, each round is array of [homeId, awayId] (or null for bye)
+  const roundWindows = buildRoundSchedule({
+    stageStartsAt: stage.startsAt,
+    stageEndsAt: stage.endsAt,
+    roundCount: pairings.length,
+  });
 
   const result = await prisma.$transaction(async (tx) => {
     let matchesCreated = 0;
@@ -472,14 +476,14 @@ export async function runScheduler(input: { competitionId: string }): Promise<Ru
     const intervalMs = stage.matchIntervalMinutes * 60 * 1000;
 
     for (let r = 0; r < pairings.length; r++) {
-      const roundDate = new Date(stage.startsAt.getTime() + r * 24 * 60 * 60 * 1000); // one round per day
+      const roundWindow = roundWindows[r];
       const round = await tx.round.create({
         data: {
           stageId: stage.id,
           name: `Week ${r + 1}`,
           order: r,
-          startsAt: roundDate,
-          endsAt: new Date(roundDate.getTime() + 24 * 60 * 60 * 1000),
+          startsAt: roundWindow.startsAt,
+          endsAt: roundWindow.endsAt,
         },
         select: { id: true },
       });
@@ -499,7 +503,7 @@ export async function runScheduler(input: { competitionId: string }): Promise<Ru
             awayRosterId: awayId,
             bracketRound: r + 1,
             bracketSlot: p,
-            scheduledAt: new Date(roundDate.getTime() + slotOffset),
+            scheduledAt: new Date(roundWindow.startsAt.getTime() + slotOffset),
             status: "SCHEDULED",
             bestOf: stage.bestOf,
           },
@@ -518,6 +522,7 @@ export async function runScheduler(input: { competitionId: string }): Promise<Ru
           matchesCreated,
           roundsCreated,
           rosterCount: rosters.length,
+          roundCadence: roundWindows[0]?.cadence ?? null,
         },
         leagueId: ctx.league.id,
         competitionId: competition.id,
@@ -876,49 +881,4 @@ function roundName(matchCount: number): string {
     default:
       return `Playoff Round (${matchCount} matches)`;
   }
-}
-
-// --- Round-robin builder -----------------------------------------------
-
-/**
- * Circle method: returns N-1 rounds of (N/2) pairings (rounded up — a bye
- * shows up as `null`). Each team plays every other team exactly once.
- *
- * For odd N we add a sentinel "bye" slot, so each round one team rests.
- */
-function buildRoundRobinPairings(
-  rosterIds: string[],
-): Array<Array<[string, string] | null>> {
-  const teams = [...rosterIds];
-  if (teams.length % 2 === 1) teams.push("__BYE__");
-  const n = teams.length;
-  const roundsCount = n - 1;
-  const half = n / 2;
-
-  const rounds: Array<Array<[string, string] | null>> = [];
-  const arr = [...teams];
-
-  for (let r = 0; r < roundsCount; r++) {
-    const pairings: Array<[string, string] | null> = [];
-    for (let i = 0; i < half; i++) {
-      const a = arr[i];
-      const b = arr[n - 1 - i];
-      if (a === "__BYE__" || b === "__BYE__") {
-        pairings.push(null);
-      } else {
-        // Alternate home/away each round so teams don't always play same side
-        if (r % 2 === 0) pairings.push([a, b]);
-        else pairings.push([b, a]);
-      }
-    }
-    rounds.push(pairings);
-    // Rotate — keep first fixed, rotate the rest clockwise
-    const fixed = arr[0];
-    const rest = arr.slice(1);
-    rest.unshift(rest.pop() as string);
-    arr.length = 0;
-    arr.push(fixed, ...rest);
-  }
-
-  return rounds;
 }

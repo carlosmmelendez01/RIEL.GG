@@ -11,7 +11,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
-    "db:check": "node --env-file=.env scripts/test-connection.mjs",
+    "db:check": "node scripts/test-connection.mjs",
     "acceptance:alpha": "node --import tsx scripts/acceptance-alpha.ts",
     "test": "vitest",
     "test:run": "vitest run",

@@ -14,18 +14,24 @@
  * click; refusals show the exact reason returned by the shared policy.
  */
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
+  ArrowDown,
   CalendarPlus,
   CheckCircle2,
+  Clock,
   CircleAlert,
   Copy,
   Crown,
+  ExternalLink,
   FileSpreadsheet,
   Link2,
   Lock,
   Mail,
+  ShieldCheck,
   Trophy,
+  UserCog,
   UserPlus,
   X,
 } from "lucide-react";
@@ -131,43 +137,56 @@ function RegisterCard({
             <div className="space-y-1.5">
               {competitionDecisions.map((c) => {
                 const canRegister = c.action.kind === "REGISTER_TEAM" && c.eligible;
+                const inputId = `competition-${c.competitionId}`;
                 return (
-                <label
-                  key={c.competitionId}
-                  className={cn(
-                    "flex items-start gap-3 rounded-lg border bg-background/40 p-3 transition-colors",
-                    canRegister ? "cursor-pointer hover:bg-card" : "opacity-80",
-                    selected === c.competitionId
-                      ? "border-[color:var(--brand-gold)]"
-                      : "border-border/60",
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="competition"
-                    value={c.competitionId}
-                    checked={selected === c.competitionId}
-                    onChange={() => setSelected(c.competitionId)}
-                    disabled={!canRegister}
-                    className="mt-1 accent-[color:var(--brand-gold)]"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-[13px] font-semibold">{c.name}</p>
-                      <DecisionBadge decision={c} />
+                  <div
+                    key={c.competitionId}
+                    className={cn(
+                      "grid gap-3 rounded-lg border bg-background/40 p-3 transition-colors sm:grid-cols-[minmax(0,1fr)_auto]",
+                      canRegister ? "hover:bg-card" : "opacity-90",
+                      selected === c.competitionId
+                        ? "border-[color:var(--brand-gold)]"
+                        : "border-border/60",
+                    )}
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <input
+                        id={inputId}
+                        type="radio"
+                        name="competition"
+                        value={c.competitionId}
+                        checked={selected === c.competitionId}
+                        onChange={() => setSelected(c.competitionId)}
+                        disabled={!canRegister}
+                        className="mt-1 accent-[color:var(--brand-gold)] disabled:cursor-not-allowed"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label
+                            htmlFor={inputId}
+                            className={cn(
+                              "truncate text-[13px] font-semibold",
+                              canRegister ? "cursor-pointer" : "cursor-default",
+                            )}
+                          >
+                            {c.name}
+                          </label>
+                          <DecisionBadge decision={c} />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {c.game} · {c.tier.toLowerCase()} · {c.registeredCount} team
+                          {c.registeredCount === 1 ? "" : "s"} registered
+                          {c.registrationClosesAt
+                            ? ` · closes ${c.registrationClosesAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                            : ""}
+                        </p>
+                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                          {c.message}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      {c.game} · {c.tier.toLowerCase()} · {c.registeredCount} team
-                      {c.registeredCount === 1 ? "" : "s"} registered
-                      {c.registrationClosesAt
-                        ? ` · closes ${c.registrationClosesAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-                        : ""}
-                    </p>
-                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                      {c.message}
-                    </p>
+                    <DecisionAction decision={c} selected={selected === c.competitionId} />
                   </div>
-                </label>
                 );
               })}
             </div>
@@ -180,7 +199,7 @@ function RegisterCard({
               <Banner kind="success">
                 {result.registrationStatus === "APPROVED"
                   ? "Registered. You can build the roster now."
-                  : "Registered. A league admin will review your roster shortly."}
+                  : "Registered. League review will start shortly."}
               </Banner>
             ) : null}
 
@@ -234,6 +253,114 @@ function decisionLabel(reason: CompetitionDecisionRow["reason"]) {
       return "Agreement";
     case "COACH_NOT_AUTHORIZED":
       return "Access";
+    case "SCHOOL_NOT_VERIFIED":
+      return "Verification";
+    case "LATE_REGISTRATION_AVAILABLE":
+      return "Late entry";
+    case "TEAM_LIMIT_REACHED":
+      return "Limit";
+    default:
+      return "Unavailable";
+  }
+}
+
+function DecisionAction({
+  decision,
+  selected,
+}: {
+  decision: CompetitionDecisionRow;
+  selected: boolean;
+}) {
+  const actionClass =
+    "inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition-colors sm:w-auto";
+  const liveClass =
+    "border-[color:var(--brand-gold)]/45 bg-[color:var(--brand-gold)]/10 text-[color:var(--brand-gold)] hover:bg-[color:var(--brand-gold)]/15";
+  const quietClass =
+    "border-border/60 bg-card text-muted-foreground hover:bg-background hover:text-foreground";
+  const disabledClass =
+    "border-border/60 bg-muted/40 text-muted-foreground opacity-85";
+
+  switch (decision.action.kind) {
+    case "REGISTER_TEAM":
+      return (
+        <label
+          htmlFor={`competition-${decision.competitionId}`}
+          className={cn(actionClass, selected ? liveClass : quietClass, "cursor-pointer")}
+        >
+          <CalendarPlus className="h-3.5 w-3.5" />
+          {selected ? "Selected" : "Select"}
+        </label>
+      );
+    case "MANAGE_TEAM":
+      return (
+        <a
+          href={`#roster-${decision.action.rosterId}`}
+          className={cn(actionClass, quietClass)}
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+          Manage roster
+        </a>
+      );
+    case "VIEW_VERIFICATION_STATUS":
+      return (
+        <Link href="/dashboard/school" className={cn(actionClass, quietClass)}>
+          <ShieldCheck className="h-3.5 w-3.5" />
+          View school status
+        </Link>
+      );
+    case "ACCEPT_SCHOOL_AGREEMENT":
+      return (
+        <Link
+          href={`/agreements/school/${decision.action.schoolId}`}
+          className={cn(actionClass, liveClass)}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Accept agreement
+        </Link>
+      );
+    case "REQUEST_ACCESS":
+      return (
+        <Link href="/dashboard/school" className={cn(actionClass, quietClass)}>
+          <UserCog className="h-3.5 w-3.5" />
+          View access
+        </Link>
+      );
+    case "REQUEST_LATE_REGISTRATION":
+      return (
+        <button
+          type="button"
+          disabled
+          className={cn(actionClass, disabledClass, "cursor-not-allowed")}
+          title="Late registration requests are not available in this alpha yet."
+        >
+          <Clock className="h-3.5 w-3.5" />
+          Request late entry
+        </button>
+      );
+    case "NONE":
+      return (
+        <button
+          type="button"
+          disabled
+          className={cn(actionClass, disabledClass, "cursor-not-allowed")}
+        >
+          <Clock className="h-3.5 w-3.5" />
+          {fallbackActionLabel(decision.reason)}
+        </button>
+      );
+  }
+}
+
+function fallbackActionLabel(reason: CompetitionDecisionRow["reason"]) {
+  switch (reason) {
+    case "REGISTRATION_NOT_OPEN":
+      return "Opens later";
+    case "REGISTRATION_CLOSED":
+      return "Closed";
+    case "MISSING_CLASSIFICATION":
+      return "Division pending";
+    case "TEAM_LIMIT_REACHED":
+      return "Limit reached";
     default:
       return "Unavailable";
   }
@@ -260,7 +387,7 @@ function RosterCard({
   })();
 
   return (
-    <Card className="border-border/60 bg-card/80">
+    <Card id={`roster-${roster.rosterId}`} className="scroll-mt-24 border-border/60 bg-card/80">
       <CardHeader className="pb-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
           {roster.game}

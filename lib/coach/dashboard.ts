@@ -15,9 +15,12 @@
  * empty arrays and the page renders an empty state.
  */
 
+import type { EligibilityAction, EligibilityReason } from "@/lib/domain/eligibility";
 import type { MatchStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
+import { loadSchoolAgreementStatus } from "@/lib/compliance/agreements";
+import { evaluateTeamCompetitionEligibility } from "@/lib/eligibility/team-competition";
 
 // --- Types --------------------------------------------------------------
 
@@ -1257,9 +1260,9 @@ export async function loadCoachTeam(
   };
 }
 
-// --- Open competitions for a team --------------------------------------
+// --- Competition decisions for a team ----------------------------------
 
-export type OpenCompetitionRow = {
+export type CompetitionDecisionRow = {
   competitionId: string;
   name: string;
   game: string;
@@ -1267,36 +1270,58 @@ export type OpenCompetitionRow = {
   registrationOpensAt: Date | null;
   registrationClosesAt: Date | null;
   registeredCount: number;
+  eligible: boolean;
+  reason: EligibilityReason;
+  message: string;
+  action: EligibilityAction;
 };
 
 /**
- * Competitions the given team is eligible to register for:
- *   - belong to a league the team's school is an active member of
- *   - match the team's game + skill tier
- *   - registration window currently open (or open-ended)
- *   - team isn't already registered
+ * Visible competition decisions for the given team.
+ *
+ * This deliberately returns decisions rather than a pre-filtered "open" list:
+ * the coach sees every competition this team could plausibly enter, with the
+ * same reason/action that the registration action enforces.
  */
-export async function loadOpenCompetitionsForTeam(
+export async function loadCompetitionDecisionsForTeam(
+  userId: string,
   teamId: string,
-): Promise<OpenCompetitionRow[]> {
+): Promise<CompetitionDecisionRow[]> {
   const team = await prisma.team.findUnique({
     where: { id: teamId },
     select: {
+      id: true,
       gameTitleId: true,
       skillTier: true,
       schoolId: true,
-      rosters: { select: { competitionId: true } },
+      school: {
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          lowGrade: true,
+          highGrade: true,
+        },
+      },
     },
   });
   if (!team) return [];
 
-  const memberships = await prisma.leagueMembership.findMany({
-    where: { schoolId: team.schoolId, status: "ACTIVE" },
-    select: { leagueId: true },
-  });
+  const [schoolMembership, memberships, agreementStatus] = await Promise.all([
+    prisma.schoolMembership.findUnique({
+      where: { schoolId_userId: { schoolId: team.schoolId, userId } },
+      select: { role: true },
+    }),
+    prisma.leagueMembership.findMany({
+      where: { schoolId: team.schoolId, status: "ACTIVE" },
+      select: { leagueId: true },
+    }),
+    loadSchoolAgreementStatus(team.schoolId),
+  ]);
   if (memberships.length === 0) return [];
 
-  const alreadyRegistered = new Set(team.rosters.map((r) => r.competitionId));
+  const canRegister =
+    schoolMembership?.role === "COACH" || schoolMembership?.role === "MANAGER";
   const now = new Date();
 
   const competitions = await prisma.competition.findMany({
@@ -1304,7 +1329,6 @@ export async function loadOpenCompetitionsForTeam(
       gameTitleId: team.gameTitleId,
       skillTier: team.skillTier,
       season: { leagueId: { in: memberships.map((m) => m.leagueId) } },
-      state: { in: ["DRAFT", "ACTIVE"] },
     },
     orderBy: { registrationOpensAt: "asc" },
     select: {
@@ -1313,22 +1337,112 @@ export async function loadOpenCompetitionsForTeam(
       registrationOpensAt: true,
       registrationClosesAt: true,
       skillTier: true,
-      gameTitle: { select: { name: true } },
-      _count: { select: { rosters: true } },
+      state: true,
+      status: true,
+      divisionId: true,
+      gameTitleId: true,
+      gameTitle: { select: { name: true, slug: true } },
+      season: { select: { id: true } },
+      rosters: {
+        select: {
+          id: true,
+          teamId: true,
+          registrationStatus: true,
+          team: { select: { schoolId: true } },
+        },
+      },
     },
   });
+  if (competitions.length === 0) return [];
+
+  const classifications = await prisma.seasonSchoolClassification.findMany({
+    where: {
+      schoolId: team.schoolId,
+      seasonId: { in: [...new Set(competitions.map((competition) => competition.season.id))] },
+    },
+    select: {
+      seasonId: true,
+      effectiveDivisionId: true,
+    },
+  });
+  const classificationBySeason = new Map(
+    classifications.map((classification) => [classification.seasonId, classification]),
+  );
 
   return competitions
-    .filter((c) => !alreadyRegistered.has(c.id))
-    .filter((c) => !c.registrationOpensAt || c.registrationOpensAt <= now)
-    .filter((c) => !c.registrationClosesAt || c.registrationClosesAt >= now)
-    .map((c) => ({
-      competitionId: c.id,
-      name: c.name,
-      game: c.gameTitle.name,
-      tier: c.skillTier,
-      registrationOpensAt: c.registrationOpensAt,
-      registrationClosesAt: c.registrationClosesAt,
-      registeredCount: c._count.rosters,
+    .map((competition) => {
+      const classification = classificationBySeason.get(competition.season.id);
+      const existingRoster = competition.rosters.find((roster) => roster.teamId === team.id);
+      const decision = evaluateTeamCompetitionEligibility({
+        now,
+        school: {
+          id: team.school.id,
+          name: team.school.name,
+          level: team.school.level,
+          lowGrade: team.school.lowGrade,
+          highGrade: team.school.highGrade,
+          verifiedInLeague: true,
+          agreementAccepted: agreementStatus.accepted,
+          divisionId: classification?.effectiveDivisionId ?? null,
+          classificationMissing: competition.divisionId !== null && !classification,
+        },
+        team: {
+          id: team.id,
+          gameTitleId: team.gameTitleId,
+          skillTier: team.skillTier,
+        },
+        competition: {
+          id: competition.id,
+          name: competition.name,
+          gameTitleId: competition.gameTitleId,
+          gameSlug: competition.gameTitle.slug,
+          skillTier: competition.skillTier,
+          state: competition.state,
+          status: competition.status,
+          divisionId: competition.divisionId,
+          registrationOpensAt: competition.registrationOpensAt,
+          registrationClosesAt: competition.registrationClosesAt,
+        },
+        actor: { canRegister },
+        state: {
+          registeredTeamCount: competition.rosters.filter(
+            (roster) =>
+              roster.team.schoolId === team.schoolId &&
+              roster.registrationStatus !== "REJECTED",
+          ).length,
+          existingRosterId: existingRoster?.id ?? null,
+        },
+      });
+
+      return {
+        competitionId: competition.id,
+        name: competition.name,
+        game: competition.gameTitle.name,
+        tier: competition.skillTier,
+        registrationOpensAt: competition.registrationOpensAt,
+        registrationClosesAt: competition.registrationClosesAt,
+        registeredCount: competition.rosters.filter(
+          (roster) => roster.registrationStatus !== "REJECTED",
+        ).length,
+        eligible: decision.eligible,
+        reason: decision.reason,
+        message: decision.message,
+        action: decision.action,
+        visible: decision.visible,
+      };
+    })
+    .filter((row) => row.visible)
+    .map((row) => ({
+      competitionId: row.competitionId,
+      name: row.name,
+      game: row.game,
+      tier: row.tier,
+      registrationOpensAt: row.registrationOpensAt,
+      registrationClosesAt: row.registrationClosesAt,
+      registeredCount: row.registeredCount,
+      eligible: row.eligible,
+      reason: row.reason,
+      message: row.message,
+      action: row.action,
     }));
 }

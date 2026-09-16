@@ -20,7 +20,7 @@ import { TeamRosterManager } from "@/components/team/team-roster-manager";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   loadCoachTeam,
-  loadOpenCompetitionsForTeam,
+  loadCompetitionDecisionsForTeam,
 } from "@/lib/coach/dashboard";
 
 export default async function CoachTeamDetailPage({
@@ -69,7 +69,7 @@ export default async function CoachTeamDetailPage({
     );
   }
 
-  const openCompetitions = await loadOpenCompetitionsForTeam(team.id);
+  const competitionDecisions = await loadCompetitionDecisionsForTeam(user.id, team.id);
 
   return (
     <>
@@ -118,7 +118,7 @@ export default async function CoachTeamDetailPage({
           </div>
         </section>
 
-        <TeamRosterManager team={team} openCompetitions={openCompetitions} />
+        <TeamRosterManager team={team} competitionDecisions={competitionDecisions} />
       </main>
     </>
   );

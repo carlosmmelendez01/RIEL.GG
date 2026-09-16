@@ -274,6 +274,7 @@ model Division {
   rules                     DivisionRule[]
   calculatedClassifications SeasonSchoolClassification[] @relation("CalculatedDivision")
   effectiveClassifications  SeasonSchoolClassification[] @relation("EffectiveDivision")
+  competitions              Competition[]
 
   @@unique([leagueId, name])
   @@index([leagueId, sortOrder])
@@ -772,28 +773,31 @@ enum ContentStatus {
 }
 
 model Competition {
-  id                   String          @id @default(cuid())
-  seasonId             String
-  season               Season          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  name                 String // "Spring 2026 — Rocket League Varsity"
-  gameTitleId          String
-  gameTitle            GameTitle       @relation(fields: [gameTitleId], references: [id])
-  gameFormatId         String?
-  gameFormat           GameFormat?     @relation(fields: [gameFormatId], references: [id])
-  skillTier            SkillTier
-  kind                 CompetitionKind @default(SEASON_PLAY)
-  state                ContentState    @default(DRAFT)
-  status               ContentStatus   @default(SEEDING)
-  isOnline             Boolean         @default(true)
-  locationLabel        String?
-  registrationOpensAt  DateTime?
-  registrationClosesAt DateTime?
+  id                           String          @id @default(cuid())
+  seasonId                     String
+  season                       Season          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  name                         String // "Spring 2026 — Rocket League Varsity"
+  gameTitleId                  String
+  gameTitle                    GameTitle       @relation(fields: [gameTitleId], references: [id])
+  gameFormatId                 String?
+  gameFormat                   GameFormat?     @relation(fields: [gameFormatId], references: [id])
+  divisionId                   String?
+  division                     Division?       @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+  skillTier                    SkillTier
+  kind                         CompetitionKind @default(SEASON_PLAY)
+  state                        ContentState    @default(DRAFT)
+  status                       ContentStatus   @default(SEEDING)
+  isOnline                     Boolean         @default(true)
+  locationLabel                String?
+  registrationOpensAt          DateTime?
+  registrationClosesAt         DateTime?
+  registrationRequiresApproval Boolean         @default(false)
   // Open-ended config — kept as Json so we can iterate without migrations.
-  rewardsConfig        Json?
-  discordConfig        Json?
-  resultsConfig        Json?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  rewardsConfig                Json?
+  discordConfig                Json?
+  resultsConfig                Json?
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
 
   stages              Stage[]
   rosters             Roster[]
@@ -801,6 +805,7 @@ model Competition {
   resources           LeagueResource[]
 
   @@index([seasonId])
+  @@index([divisionId])
   @@index([gameTitleId, skillTier])
 }
 

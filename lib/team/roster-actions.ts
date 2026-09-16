@@ -28,6 +28,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { isSupportedGame } from "@/lib/games/supported";
+import { evaluateTeamCompetitionEligibility } from "@/lib/eligibility/team-competition";
 import { emailUrl, sendEmail } from "@/lib/email/send";
 import { RosterApproved, rosterApprovedText } from "@/lib/email/templates/roster-approved";
 import { RosterRejected, rosterRejectedText } from "@/lib/email/templates/roster-rejected";
@@ -189,7 +190,7 @@ const RegisterInput = z.object({
 });
 
 export type RegisterTeamResult =
-  | { ok: true; rosterId: string }
+  | { ok: true; rosterId: string; registrationStatus: "PENDING" | "APPROVED" }
   | { ok: false; error: string };
 
 export async function registerTeamForCompetition(
@@ -209,6 +210,15 @@ export async function registerTeamForCompetition(
       select: {
         id: true,
         schoolId: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+            level: true,
+            lowGrade: true,
+            highGrade: true,
+          },
+        },
         gameTitleId: true,
         skillTier: true,
         archived: true,
@@ -218,13 +228,17 @@ export async function registerTeamForCompetition(
       where: { id: competitionId },
       select: {
         id: true,
+        name: true,
         gameTitleId: true,
         gameTitle: { select: { slug: true } },
         skillTier: true,
         registrationOpensAt: true,
         registrationClosesAt: true,
+        registrationRequiresApproval: true,
         state: true,
-        season: { select: { leagueId: true } },
+        status: true,
+        divisionId: true,
+        season: { select: { id: true, leagueId: true } },
       },
     }),
   ]);
@@ -233,87 +247,89 @@ export async function registerTeamForCompetition(
   if (team.archived) return { ok: false, error: "This team is archived." };
   if (!competition) return { ok: false, error: "Competition not found." };
 
-  // Coach gate
   const coach = await requireSchoolCoach(user.id, team.schoolId);
-  if (!coach) {
-    return {
-      ok: false,
-      error: "Only the school's coach or manager can register a team.",
-    };
-  }
-  if (!(await requireSchoolAgreement(team.schoolId))) {
-    return {
-      ok: false,
-      error: "A school manager must accept the school agreement before registering teams.",
-    };
-  }
 
-  // Competition must be in a league the school is a member of (active)
-  const membership = await prisma.leagueMembership.findUnique({
-    where: {
-      leagueId_schoolId: {
-        leagueId: competition.season.leagueId,
-        schoolId: team.schoolId,
+  const [agreementAccepted, membership, classification, competitionRosters] = await Promise.all([
+    requireSchoolAgreement(team.schoolId),
+    prisma.leagueMembership.findUnique({
+      where: {
+        leagueId_schoolId: {
+          leagueId: competition.season.leagueId,
+          schoolId: team.schoolId,
+        },
       },
+      select: { status: true },
+    }),
+    prisma.seasonSchoolClassification.findUnique({
+      where: {
+        seasonId_schoolId: {
+          seasonId: competition.season.id,
+          schoolId: team.schoolId,
+        },
+      },
+      select: { effectiveDivisionId: true },
+    }),
+    prisma.roster.findMany({
+      where: { competitionId },
+      select: {
+        id: true,
+        teamId: true,
+        registrationStatus: true,
+        team: { select: { schoolId: true } },
+      },
+    }),
+  ]);
+
+  const existing = competitionRosters.find((roster) => roster.teamId === teamId) ?? null;
+  const decision = evaluateTeamCompetitionEligibility({
+    now: new Date(),
+    school: {
+      id: team.school.id,
+      name: team.school.name,
+      level: team.school.level,
+      lowGrade: team.school.lowGrade,
+      highGrade: team.school.highGrade,
+      verifiedInLeague: membership?.status === "ACTIVE",
+      agreementAccepted,
+      divisionId: classification?.effectiveDivisionId ?? null,
+      classificationMissing: competition.divisionId !== null && !classification,
     },
-    select: { status: true },
+    team: {
+      id: team.id,
+      gameTitleId: team.gameTitleId,
+      skillTier: team.skillTier,
+    },
+    competition: {
+      id: competition.id,
+      name: competition.name,
+      gameTitleId: competition.gameTitleId,
+      gameSlug: competition.gameTitle?.slug ?? "",
+      skillTier: competition.skillTier,
+      state: competition.state,
+      status: competition.status,
+      divisionId: competition.divisionId,
+      registrationOpensAt: competition.registrationOpensAt,
+      registrationClosesAt: competition.registrationClosesAt,
+    },
+    actor: { canRegister: coach !== null },
+    state: {
+      registeredTeamCount: competitionRosters.filter(
+        (roster) =>
+          roster.team.schoolId === team.schoolId && roster.registrationStatus !== "REJECTED",
+      ).length,
+      existingRosterId: existing?.id ?? null,
+    },
   });
-  if (!membership || membership.status !== "ACTIVE") {
-    return {
-      ok: false,
-      error: "Your school isn't an active member of this competition's league.",
-    };
-  }
+  if (!decision.eligible) return { ok: false, error: decision.message };
 
-  if (competition.gameTitle && !isSupportedGame(competition.gameTitle.slug)) {
-    return {
-      ok: false,
-      error: "This competition's game is no longer supported for new registrations.",
-    };
-  }
-  if (competition.gameTitleId !== team.gameTitleId) {
-    return {
-      ok: false,
-      error: "This team plays a different game than the competition.",
-    };
-  }
-  if (competition.skillTier !== team.skillTier) {
-    return {
-      ok: false,
-      error: `Competition is ${competition.skillTier.toLowerCase()} but this team is ${team.skillTier.toLowerCase()}.`,
-    };
-  }
-
-  const now = new Date();
-  if (competition.registrationOpensAt && now < competition.registrationOpensAt) {
-    return { ok: false, error: "Registration hasn't opened yet." };
-  }
-  if (competition.registrationClosesAt && now > competition.registrationClosesAt) {
-    return { ok: false, error: "Registration has closed for this competition." };
-  }
-  if (competition.state === "COMPLETE") {
-    return { ok: false, error: "This competition has already finished." };
-  }
-
-  // Idempotent — the (teamId, competitionId) unique constraint protects us
-  // but we want a friendlier message than a Prisma error code.
-  const existing = await prisma.roster.findUnique({
-    where: { teamId_competitionId: { teamId, competitionId } },
-    select: { id: true, registrationStatus: true },
-  });
-  if (existing) {
-    return {
-      ok: false,
-      error: `This team is already registered (${existing.registrationStatus.toLowerCase()}).`,
-    };
-  }
+  const registrationStatus = competition.registrationRequiresApproval ? "PENDING" : "APPROVED";
 
   const roster = await prisma.$transaction(async (tx) => {
     const created = await tx.roster.create({
       data: {
         teamId,
         competitionId,
-        registrationStatus: "PENDING",
+        registrationStatus,
       },
       select: { id: true },
     });
@@ -327,7 +343,7 @@ export async function registerTeamForCompetition(
         after: {
           teamId,
           competitionId,
-          status: "PENDING",
+          status: registrationStatus,
         },
         leagueId: competition.season.leagueId,
         competitionId: competition.id,
@@ -340,7 +356,7 @@ export async function registerTeamForCompetition(
 
   revalidateCoachSurfaces(teamId);
   revalidateAdminSurfaces(competition.id);
-  return { ok: true, rosterId: roster.id };
+  return { ok: true, rosterId: roster.id, registrationStatus };
 }
 
 // --- 3. addPlayerToRoster ---------------------------------------------
@@ -404,7 +420,7 @@ export async function addPlayerToRoster(
   if (roster.editLock === "LOCKED") {
     return {
       ok: false,
-      error: "Roster is locked for this competition — contact a league admin to make changes.",
+      error: "Roster is locked for this competition because league review has started.",
     };
   }
 
@@ -574,7 +590,7 @@ export async function importRosterCsv(input: {
   if (roster.editLock === "LOCKED") {
     return {
       ok: false,
-      error: "Roster is locked for this competition — contact a league admin to make changes.",
+      error: "Roster is locked for this competition because league review has started.",
     };
   }
 
@@ -829,7 +845,7 @@ export async function removePlayerFromRoster(
   if (m.roster.editLock === "LOCKED") {
     return {
       ok: false,
-      error: "Roster is locked — contact a league admin to make changes.",
+      error: "Roster is locked because league review has started.",
     };
   }
 

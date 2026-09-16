@@ -418,15 +418,15 @@ function TerminalCard({
   const copy = {
     expired: {
       title: "This invite has expired.",
-      body: "Invites are valid for 30 days. Ask the league admin to issue a fresh one.",
+      body: "Invites are valid for 30 days. Ask the person who invited you to send a fresh link.",
     },
     exhausted: {
       title: "This invite has already been used.",
-      body: `Someone has already claimed ownership of ${school.name}. If that wasn't you, contact the league admin.`,
+      body: `Someone has already claimed ownership of ${school.name}. If that wasn't you, ask the person who invited you to send a fresh school invite.`,
     },
     revoked: {
       title: "This invite was revoked.",
-      body: "The league admin pulled this invite. Reach out to them for a new link.",
+      body: "This invite is no longer active. Ask the person who invited you to send a fresh link.",
     },
   }[kind];
 

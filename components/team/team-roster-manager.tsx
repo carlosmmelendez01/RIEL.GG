@@ -10,8 +10,8 @@
  *   - Per-row "Remove" button (gated server-side to non-locked rosters)
  *
  * Also renders a separate "Register for competition" card listing every
- * open competition this team is eligible for, with a one-click register
- * button that creates a new Roster (PENDING).
+ * visible competition decision for this team. Eligible rows register in one
+ * click; refusals show the exact reason returned by the shared policy.
  */
 
 import { useState, useTransition } from "react";
@@ -43,21 +43,21 @@ import {
   type AddPlayerResult,
   type RegisterTeamResult,
 } from "@/lib/team/roster-actions";
-import type { CoachTeamDetail, OpenCompetitionRow } from "@/lib/coach/dashboard";
+import type { CoachTeamDetail, CompetitionDecisionRow } from "@/lib/coach/dashboard";
 import { cn } from "@/lib/utils";
 
 // --- Top-level ----------------------------------------------------------
 
 export function TeamRosterManager({
   team,
-  openCompetitions,
+  competitionDecisions,
 }: {
   team: CoachTeamDetail;
-  openCompetitions: OpenCompetitionRow[];
+  competitionDecisions: CompetitionDecisionRow[];
 }) {
   return (
     <div className="space-y-6">
-      <RegisterCard team={team} openCompetitions={openCompetitions} />
+      <RegisterCard team={team} competitionDecisions={competitionDecisions} />
 
       {team.rosters.length === 0 ? (
         <Card className="border-dashed border-border/80 bg-card/40">
@@ -87,10 +87,10 @@ export function TeamRosterManager({
 
 function RegisterCard({
   team,
-  openCompetitions,
+  competitionDecisions,
 }: {
   team: CoachTeamDetail;
-  openCompetitions: OpenCompetitionRow[];
+  competitionDecisions: CompetitionDecisionRow[];
 }) {
   const [selected, setSelected] = useState<string>("");
   const [result, setResult] = useState<RegisterTeamResult | null>(null);
@@ -121,19 +121,22 @@ function RegisterCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {openCompetitions.length === 0 ? (
+        {competitionDecisions.length === 0 ? (
           <p className="rounded-md border border-border/60 bg-background/40 p-3 text-[12px] text-muted-foreground">
-            No open competitions match this team&apos;s game + tier right now. New competitions
-            will show up here when a league admin creates them.
+            No competitions are available for this team right now. New published competitions
+            will show up here when this school can act on them.
           </p>
         ) : (
           <>
             <div className="space-y-1.5">
-              {openCompetitions.map((c) => (
+              {competitionDecisions.map((c) => {
+                const canRegister = c.action.kind === "REGISTER_TEAM" && c.eligible;
+                return (
                 <label
                   key={c.competitionId}
                   className={cn(
-                    "flex cursor-pointer items-start gap-3 rounded-lg border bg-background/40 p-3 transition-colors hover:bg-card",
+                    "flex items-start gap-3 rounded-lg border bg-background/40 p-3 transition-colors",
+                    canRegister ? "cursor-pointer hover:bg-card" : "opacity-80",
                     selected === c.competitionId
                       ? "border-[color:var(--brand-gold)]"
                       : "border-border/60",
@@ -145,10 +148,14 @@ function RegisterCard({
                     value={c.competitionId}
                     checked={selected === c.competitionId}
                     onChange={() => setSelected(c.competitionId)}
+                    disabled={!canRegister}
                     className="mt-1 accent-[color:var(--brand-gold)]"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold">{c.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-[13px] font-semibold">{c.name}</p>
+                      <DecisionBadge decision={c} />
+                    </div>
                     <p className="text-[11px] text-muted-foreground">
                       {c.game} · {c.tier.toLowerCase()} · {c.registeredCount} team
                       {c.registeredCount === 1 ? "" : "s"} registered
@@ -156,9 +163,13 @@ function RegisterCard({
                         ? ` · closes ${c.registrationClosesAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
                         : ""}
                     </p>
+                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                      {c.message}
+                    </p>
                   </div>
                 </label>
-              ))}
+                );
+              })}
             </div>
 
             {result && !result.ok ? (
@@ -167,7 +178,9 @@ function RegisterCard({
 
             {result?.ok ? (
               <Banner kind="success">
-                Registered. A league admin will review your roster shortly.
+                {result.registrationStatus === "APPROVED"
+                  ? "Registered. You can build the roster now."
+                  : "Registered. A league admin will review your roster shortly."}
               </Banner>
             ) : null}
 
@@ -187,6 +200,43 @@ function RegisterCard({
       </CardContent>
     </Card>
   );
+}
+
+function DecisionBadge({ decision }: { decision: CompetitionDecisionRow }) {
+  if (decision.eligible) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+        <CheckCircle2 className="h-2.5 w-2.5" />
+        Eligible
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-sm border border-[color:var(--brand-gold)]/30 bg-[color:var(--brand-gold)]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[color:var(--brand-gold)]">
+      <CircleAlert className="h-2.5 w-2.5" />
+      {decisionLabel(decision.reason)}
+    </span>
+  );
+}
+
+function decisionLabel(reason: CompetitionDecisionRow["reason"]) {
+  switch (reason) {
+    case "ALREADY_REGISTERED":
+      return "Registered";
+    case "REGISTRATION_NOT_OPEN":
+      return "Not open";
+    case "REGISTRATION_CLOSED":
+      return "Closed";
+    case "MISSING_CLASSIFICATION":
+      return "Needs division";
+    case "SCHOOL_AGREEMENT_MISSING":
+      return "Agreement";
+    case "COACH_NOT_AUTHORIZED":
+      return "Access";
+    default:
+      return "Unavailable";
+  }
 }
 
 // --- Roster card --------------------------------------------------------
@@ -248,7 +298,7 @@ function RosterCard({
         ) : (
           <p className="rounded-md border border-border/60 bg-background/40 p-2.5 text-[11px] text-muted-foreground">
             <Lock className="mr-1 inline h-3 w-3" />
-            Roster locked — contact a league admin to make changes.
+            Roster locked because league review has started.
           </p>
         )}
       </CardContent>

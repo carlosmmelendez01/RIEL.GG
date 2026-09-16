@@ -481,6 +481,7 @@ const ACTION_LABEL: Record<string, { label: string; tone: string }> = {
   "SCHOOL.JOIN": { label: "School joined", tone: "purple" },
   "SCHOOL.APPROVE": { label: "School approved", tone: "emerald" },
   "SCHOOL.DIVISION_UPDATE": { label: "School division updated", tone: "purple" },
+  "SCHOOL.CLASSIFICATION_OVERRIDE": { label: "Classification override", tone: "purple" },
   "LEAGUE.DIVISIONS_UPDATE": { label: "League divisions updated", tone: "purple" },
   "COMPETITION.CREATE": { label: "Competition created", tone: "gold" },
   "ROSTER.CREATE": { label: "Roster created", tone: "gold" },

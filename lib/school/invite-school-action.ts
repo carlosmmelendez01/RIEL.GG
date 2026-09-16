@@ -25,17 +25,12 @@ import {
 } from "@/lib/email/templates/school-invite-created";
 import { generateInviteCode } from "@/lib/invite/helpers";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
-import {
-  findLeagueDivisionOption,
-  getLeagueDivisionOptions,
-} from "@/lib/league/divisions";
 
 const InviteSchoolInput = z.object({
   schoolName: z.string().trim().min(2, "School name is required.").max(160),
   schoolShort: z.string().trim().max(60).optional(),
   schoolCity: z.string().trim().max(120).optional(),
   schoolState: z.string().trim().max(40).optional(),
-  division: z.string().trim().max(80).optional(),
   contactName: z.string().trim().min(2, "Contact name is required.").max(120),
   contactEmail: z.string().trim().email("Use a valid email."),
 });
@@ -49,8 +44,6 @@ export type InviteSchoolResult =
       inviteCode: string;
       inviteUrl: string;
       schoolName: string;
-      division: string | null;
-      divisionLabel: string | null;
       contactName: string;
       contactEmail: string;
     }
@@ -77,16 +70,6 @@ export async function inviteSchoolToLeague(
   if (!ctx) return { ok: false, error: "Only league admins can invite schools." };
 
   const contactEmail = data.contactEmail.toLowerCase();
-  const divisionOptions = getLeagueDivisionOptions(ctx.league);
-  const division = data.division?.trim() || null;
-  const divisionOption = findLeagueDivisionOption(divisionOptions, division);
-  if (divisionOptions.length > 0 && !divisionOption) {
-    return {
-      ok: false,
-      error: "Pick the school's division for this league.",
-      fieldErrors: { division: "Choose a division." },
-    };
-  }
 
   // Guard against accidentally adding the same school twice to one league.
   const existing = await prisma.leagueMembership.findFirst({
@@ -123,7 +106,6 @@ export async function inviteSchoolToLeague(
         leagueId: ctx.league.id,
         schoolId: school.id,
         status: "ACTIVE",
-        division: divisionOption?.value ?? division,
       },
     });
 
@@ -150,7 +132,6 @@ export async function inviteSchoolToLeague(
         entityId: school.id,
         after: {
           schoolName: data.schoolName,
-          division: divisionOption?.value ?? division,
           contactEmail,
           contactName: data.contactName,
         },
@@ -196,8 +177,6 @@ export async function inviteSchoolToLeague(
     inviteCode,
     inviteUrl: `/claim/${inviteCode}`,
     schoolName: data.schoolName,
-    division: divisionOption?.value ?? division,
-    divisionLabel: divisionOption?.label ?? division,
     contactName: data.contactName,
     contactEmail,
   };

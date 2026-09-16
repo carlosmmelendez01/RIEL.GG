@@ -38,26 +38,27 @@ model User {
   teamMemberships         TeamMembership[]
   rosterMemberships       RosterMembership[]
   leagueAdminships        LeagueAdminship[]
-  invitesCreated          Invite[]              @relation("InviteCreator")
+  invitesCreated          Invite[]                     @relation("InviteCreator")
   matchReports            MatchReport[]
   matchMessages           MatchMessage[]
-  matchCheckIns           MatchCheckIn[]        @relation("CheckedInUser")
-  matchCheckInsRecorded   MatchCheckIn[]        @relation("CheckInRecorder")
+  matchCheckIns           MatchCheckIn[]               @relation("CheckedInUser")
+  matchCheckInsRecorded   MatchCheckIn[]               @relation("CheckInRecorder")
   announcementsAuthored   Announcement[]
   auditLogEntries         AuditLog[]
-  reviewedModuleStatus    RosterModuleStatus[]  @relation("ModuleReviewer")
-  forfeitsRecorded        Match[]               @relation("ForfeitRecorder")
-  playerCommentsReceived  PlayerComment[]       @relation("PlayerCommentReceived")
-  playerCommentsAuthored  PlayerComment[]       @relation("PlayerCommentAuthored")
-  playerGoals             PlayerGoal[]          @relation("PlayerGoalOwner")
-  applicationsReviewed    SchoolApplication[]   @relation("ApplicationReviewer")
-  studentConsents         StudentConsent[]      @relation("StudentConsentSubject")
-  studentConsentsRecorded StudentConsent[]      @relation("StudentConsentRecorder")
-  studentDataRequests     StudentDataRequest[]  @relation("StudentDataSubject")
-  studentDataRequestsMade StudentDataRequest[]  @relation("StudentDataRequester")
-  agreementAcceptances    AgreementAcceptance[] @relation("AgreementAcceptedBy")
-  leagueResourcesAuthored LeagueResource[]      @relation("LeagueResourceAuthor")
-  leagueResourcesUpdated  LeagueResource[]      @relation("LeagueResourceUpdater")
+  reviewedModuleStatus    RosterModuleStatus[]         @relation("ModuleReviewer")
+  forfeitsRecorded        Match[]                      @relation("ForfeitRecorder")
+  playerCommentsReceived  PlayerComment[]              @relation("PlayerCommentReceived")
+  playerCommentsAuthored  PlayerComment[]              @relation("PlayerCommentAuthored")
+  playerGoals             PlayerGoal[]                 @relation("PlayerGoalOwner")
+  applicationsReviewed    SchoolApplication[]          @relation("ApplicationReviewer")
+  studentConsents         StudentConsent[]             @relation("StudentConsentSubject")
+  studentConsentsRecorded StudentConsent[]             @relation("StudentConsentRecorder")
+  studentDataRequests     StudentDataRequest[]         @relation("StudentDataSubject")
+  studentDataRequestsMade StudentDataRequest[]         @relation("StudentDataRequester")
+  agreementAcceptances    AgreementAcceptance[]        @relation("AgreementAcceptedBy")
+  leagueResourcesAuthored LeagueResource[]             @relation("LeagueResourceAuthor")
+  leagueResourcesUpdated  LeagueResource[]             @relation("LeagueResourceUpdater")
+  classificationLocks     SeasonSchoolClassification[] @relation("ClassificationLockedBy")
   feedback                Feedback[]
 }
 
@@ -72,20 +73,21 @@ enum ClassificationKind {
 }
 
 model League {
-  id              String             @id @default(cuid())
-  name            String
-  slug            String             @unique
-  description     String?
-  logoUrl         String?
-  primaryColor    String?
-  classification  ClassificationKind @default(SCHOLASTIC)
-  schoolDivisions Json? // ordered [{ value, label, description? }] configuration
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id             String             @id @default(cuid())
+  name           String
+  slug           String             @unique
+  description    String?
+  logoUrl        String?
+  primaryColor   String?
+  classification ClassificationKind @default(SCHOLASTIC)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   memberships          LeagueMembership[]
   adminships           LeagueAdminship[]
   seasons              Season[]
+  divisions            Division[]
+  divisionRules        DivisionRule[]
   invites              Invite[]
   announcements        Announcement[]
   applications         SchoolApplication[]
@@ -171,15 +173,16 @@ model School {
   datasetRelease     String? // e.g. "CCD 2025-26 preliminary directory v.0a"
   importedAt         DateTime?
 
-  memberships          SchoolMembership[]
-  teams                Team[]
-  leagueMemberships    LeagueMembership[]
-  invites              Invite[]
-  applications         SchoolApplication[]
-  studentConsents      StudentConsent[]
-  studentDataRequests  StudentDataRequest[]
-  agreementAcceptances AgreementAcceptance[]
-  enrollments          SchoolEnrollment[]
+  memberships           SchoolMembership[]
+  teams                 Team[]
+  leagueMemberships     LeagueMembership[]
+  invites               Invite[]
+  applications          SchoolApplication[]
+  studentConsents       StudentConsent[]
+  studentDataRequests   StudentDataRequest[]
+  agreementAcceptances  AgreementAcceptance[]
+  enrollments           SchoolEnrollment[]
+  seasonClassifications SeasonSchoolClassification[]
 
   // Postgres treats NULLs as distinct, so many MANUAL schools with a null
   // externalId coexist while two CCD rows can never share an NCES id.
@@ -242,8 +245,112 @@ model SchoolEnrollment {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
+  seasonClassifications SeasonSchoolClassification[]
+
   @@unique([schoolId, schoolYear, source, scope])
   @@index([schoolId, schoolYear])
+}
+
+// ===========================================================================
+// DIVISION CLASSIFICATION - data-driven league rules
+// ---------------------------------------------------------------------------
+// Divisions and rules are league-owned data. The classifier writes one
+// season-school row so admins can see the exact enrollment, rule, explanation,
+// and any manual override that produced a school's effective placement.
+// ===========================================================================
+
+model Division {
+  id          String   @id @default(cuid())
+  leagueId    String
+  league      League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String?
+  description String?
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rules                     DivisionRule[]
+  calculatedClassifications SeasonSchoolClassification[] @relation("CalculatedDivision")
+  effectiveClassifications  SeasonSchoolClassification[] @relation("EffectiveDivision")
+
+  @@unique([leagueId, name])
+  @@index([leagueId, sortOrder])
+  @@index([leagueId, active])
+}
+
+model DivisionRule {
+  id                String          @id @default(cuid())
+  leagueId          String
+  league            League          @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  divisionId        String?
+  division          Division?       @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+  schoolLevel       SchoolLevel
+  enrollmentScope   EnrollmentScope @default(GRADES_9_12)
+  minimumEnrollment Int?
+  maximumEnrollment Int?
+  effectiveFrom     DateTime        @default(now())
+  effectiveUntil    DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  classifications SeasonSchoolClassification[]
+
+  @@index([leagueId, schoolLevel, enrollmentScope])
+  @@index([divisionId])
+  @@index([effectiveFrom, effectiveUntil])
+}
+
+enum ClassificationStatus {
+  CLASSIFIED
+  NO_DIVISION
+  MISSING_SCHOOL_LEVEL
+  MISSING_ENROLLMENT
+  ENROLLMENT_SCOPE_MISMATCH
+  NO_RULE_MATCH
+  AMBIGUOUS_RULES
+}
+
+enum ClassificationMethod {
+  RULE
+  NO_DIVISION
+  ADMIN_OVERRIDE
+  UNCLASSIFIED
+}
+
+model SeasonSchoolClassification {
+  id                   String               @id @default(cuid())
+  seasonId             String
+  season               Season               @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  schoolId             String
+  school               School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  status               ClassificationStatus
+  method               ClassificationMethod @default(RULE)
+  calculatedDivisionId String?
+  calculatedDivision   Division?            @relation("CalculatedDivision", fields: [calculatedDivisionId], references: [id], onDelete: SetNull)
+  effectiveDivisionId  String?
+  effectiveDivision    Division?            @relation("EffectiveDivision", fields: [effectiveDivisionId], references: [id], onDelete: SetNull)
+  ruleId               String?
+  rule                 DivisionRule?        @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  enrollmentId         String?
+  enrollment           SchoolEnrollment?    @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  explanation          String
+  overrideReason       String?
+  reviewNeeded         Boolean              @default(false)
+  reviewReason         String?
+  lockedAt             DateTime?
+  lockedById           String?
+  lockedBy             User?                @relation("ClassificationLockedBy", fields: [lockedById], references: [id], onDelete: SetNull)
+  classifiedAt         DateTime             @default(now())
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@unique([seasonId, schoolId])
+  @@index([seasonId, effectiveDivisionId])
+  @@index([seasonId, status])
+  @@index([schoolId])
+  @@index([reviewNeeded, updatedAt])
 }
 
 // ===========================================================================
@@ -638,9 +745,10 @@ model Season {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  competitions Competition[]
-  playerGoals  PlayerGoal[]
-  resources    LeagueResource[]
+  competitions          Competition[]
+  playerGoals           PlayerGoal[]
+  resources             LeagueResource[]
+  schoolClassifications SeasonSchoolClassification[]
 }
 
 enum CompetitionKind {

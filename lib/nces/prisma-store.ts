@@ -7,6 +7,10 @@ import type {
   NcesImportStore,
   SchoolUpsertResult,
 } from "./importer";
+import {
+  classifySeasonSchool,
+  preserveLegacySeasonClassifications,
+} from "@/lib/classification/season-service";
 
 export class PrismaNcesImportStore implements NcesImportStore {
   constructor(private readonly prisma: PrismaClient) {}
@@ -161,6 +165,56 @@ export class PrismaNcesImportStore implements NcesImportStore {
       data,
     });
     return { created: false, updated: true };
+  }
+
+  async recalculateClassificationsForSchools(schoolIds: string[]): Promise<void> {
+    const uniqueSchoolIds = [...new Set(schoolIds)];
+    if (uniqueSchoolIds.length === 0) return;
+
+    const memberships = await this.prisma.leagueMembership.findMany({
+      where: {
+        schoolId: { in: uniqueSchoolIds },
+        status: "ACTIVE",
+      },
+      select: {
+        schoolId: true,
+        leagueId: true,
+      },
+    });
+    if (memberships.length === 0) return;
+
+    const leagueIds = [...new Set(memberships.map((membership) => membership.leagueId))];
+    const seasons = await this.prisma.season.findMany({
+      where: { leagueId: { in: leagueIds } },
+      select: {
+        id: true,
+        leagueId: true,
+      },
+      orderBy: { startsAt: "desc" },
+    });
+    if (seasons.length === 0) return;
+
+    const seasonsByLeague = new Map<string, string[]>();
+    for (const season of seasons) {
+      const ids = seasonsByLeague.get(season.leagueId) ?? [];
+      ids.push(season.id);
+      seasonsByLeague.set(season.leagueId, ids);
+    }
+
+    for (const season of seasons) {
+      await preserveLegacySeasonClassifications({ seasonId: season.id, db: this.prisma });
+    }
+
+    for (const membership of memberships) {
+      const seasonIds = seasonsByLeague.get(membership.leagueId) ?? [];
+      for (const seasonId of seasonIds) {
+        await classifySeasonSchool({
+          seasonId,
+          schoolId: membership.schoolId,
+          db: this.prisma,
+        });
+      }
+    }
   }
 }
 

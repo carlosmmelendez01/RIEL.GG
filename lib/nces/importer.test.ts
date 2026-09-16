@@ -67,6 +67,7 @@ describe("NCES CCD importer orchestration", () => {
     expect(result.errorCount).toBe(0);
     expect(store.enrollments.get("school-1:2024-25:NCES_CCD:GRADES_9_12")?.enrollment).toBe(876);
     expect(store.enrollments.get("school-1:2024-25:NCES_CCD:TOTAL")?.enrollment).toBe(876);
+    expect(store.recalculatedSchoolIds).toEqual([["school-1"]]);
   });
 
   it("records a run but does no file work when the release already completed", async () => {
@@ -233,6 +234,7 @@ class FakeStore implements NcesImportStore {
   }> = [];
   readonly schools = new Map<string, { id: string; record: DirectoryRecord; datasetRelease: string }>();
   readonly enrollments = new Map<string, EnrollmentUpsertInput & { source: "NCES_CCD" }>();
+  readonly recalculatedSchoolIds: string[][] = [];
 
   async hasCompletedImport(release: string): Promise<boolean> {
     return this.completedReleases.has(release);
@@ -294,6 +296,10 @@ class FakeStore implements NcesImportStore {
     const existing = this.enrollments.get(key);
     this.enrollments.set(key, { ...input, source: "NCES_CCD" });
     return { created: !existing, updated: Boolean(existing) && JSON.stringify(existing) !== JSON.stringify(input) };
+  }
+
+  async recalculateClassificationsForSchools(schoolIds: string[]): Promise<void> {
+    this.recalculatedSchoolIds.push(schoolIds);
   }
 
   private mustRun(id: string): (typeof this.importRuns)[number] {

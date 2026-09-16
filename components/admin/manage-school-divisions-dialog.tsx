@@ -23,15 +23,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
 import { updateLeagueDivisions } from "@/lib/league/division-actions";
-import type { LeagueDivisionOption } from "@/lib/league/divisions";
+import type { DivisionOption } from "@/lib/classification/season-service";
 import { cn } from "@/lib/utils";
 
-type EditableDivision = LeagueDivisionOption & { key: string };
+type EditableDivision = {
+  key: string;
+  id?: string;
+  name: string;
+  description?: string | null;
+  active?: boolean;
+};
 
 let newDivisionSequence = 0;
 
-function editableOptions(options: LeagueDivisionOption[]): EditableDivision[] {
-  return options.map((option) => ({ ...option, key: option.value }));
+function editableOptions(options: DivisionOption[]): EditableDivision[] {
+  return options.map((option) => ({
+    key: option.id,
+    id: option.id,
+    name: option.name,
+    description: option.description,
+    active: option.active,
+  }));
 }
 
 export function ManageSchoolDivisionsDialog({
@@ -39,7 +51,7 @@ export function ManageSchoolDivisionsDialog({
   options,
 }: {
   leagueName: string;
-  options: LeagueDivisionOption[];
+  options: DivisionOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -68,8 +80,8 @@ export function ManageSchoolDivisionsDialog({
       ...current,
       {
         key: `new-${Date.now()}-${newDivisionSequence}`,
-        value: "",
-        label: "",
+        name: "",
+        active: true,
       },
     ]);
     setStatus("idle");
@@ -101,9 +113,10 @@ export function ManageSchoolDivisionsDialog({
     startTransition(async () => {
       const result = await updateLeagueDivisions({
         divisions: rows.map((row) => ({
-          value: row.value || undefined,
-          label: row.label.trim(),
+          id: row.id,
+          name: row.name.trim(),
           description: row.description?.trim() || undefined,
+          active: row.active ?? true,
         })),
       });
 
@@ -118,7 +131,7 @@ export function ManageSchoolDivisionsDialog({
     });
   }
 
-  const hasBlankLabel = rows.some((row) => !row.label.trim());
+  const hasBlankLabel = rows.some((row) => !row.name.trim());
 
   return (
     <Dialog
@@ -139,8 +152,7 @@ export function ManageSchoolDivisionsDialog({
         <DialogHeader>
           <DialogTitle>School divisions</DialogTitle>
           <DialogDescription>
-            Configure the divisions {leagueName} uses for school placement. Changes apply to
-            invites, application approvals, and the school directory.
+            Configure the divisions {leagueName} uses for season placement and admin overrides.
           </DialogDescription>
         </DialogHeader>
 
@@ -160,8 +172,8 @@ export function ManageSchoolDivisionsDialog({
               >
                 <div className="min-w-0 space-y-2">
                   <Input
-                    value={row.label}
-                    onChange={(event) => updateRow(index, { label: event.target.value })}
+                    value={row.name}
+                    onChange={(event) => updateRow(index, { name: event.target.value })}
                     placeholder="Division name"
                     aria-label={`Division ${index + 1} name`}
                     maxLength={60}
@@ -182,7 +194,7 @@ export function ManageSchoolDivisionsDialog({
                     onClick={() => moveRow(index, -1)}
                     disabled={index === 0}
                     className="rounded-md border border-border/60 p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-                    aria-label={`Move ${row.label || `division ${index + 1}`} up`}
+                    aria-label={`Move ${row.name || `division ${index + 1}`} up`}
                     title="Move up"
                   >
                     <ArrowUp className="h-3.5 w-3.5" />
@@ -192,7 +204,7 @@ export function ManageSchoolDivisionsDialog({
                     onClick={() => moveRow(index, 1)}
                     disabled={index === rows.length - 1}
                     className="rounded-md border border-border/60 p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-                    aria-label={`Move ${row.label || `division ${index + 1}`} down`}
+                    aria-label={`Move ${row.name || `division ${index + 1}`} down`}
                     title="Move down"
                   >
                     <ArrowDown className="h-3.5 w-3.5" />
@@ -201,7 +213,7 @@ export function ManageSchoolDivisionsDialog({
                     type="button"
                     onClick={() => removeRow(index)}
                     className="rounded-md border border-[color:var(--brand-crimson)]/30 p-1.5 text-[color:var(--brand-crimson)] transition-colors hover:bg-[color:var(--brand-crimson)]/10"
-                    aria-label={`Remove ${row.label || `division ${index + 1}`}`}
+                    aria-label={`Remove ${row.name || `division ${index + 1}`}`}
                     title="Remove division"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -223,8 +235,7 @@ export function ManageSchoolDivisionsDialog({
         </button>
 
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Renaming or reordering keeps school assignments intact. A division cannot be removed
-          until its schools are reassigned.
+          Renaming or reordering keeps existing classifications intact.
         </p>
 
         {status === "error" ? (

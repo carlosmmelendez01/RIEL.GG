@@ -27,15 +27,12 @@ import {
   inviteSchoolToLeague,
   type InviteSchoolResult,
 } from "@/lib/school/invite-school-action";
-import type { LeagueDivisionOption } from "@/lib/league/divisions";
 import { cn } from "@/lib/utils";
 
 export function InviteSchoolDialog({
   leagueName,
-  divisionOptions = [],
 }: {
   leagueName: string;
-  divisionOptions?: LeagueDivisionOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -48,7 +45,6 @@ export function InviteSchoolDialog({
   const [schoolName, setSchoolName] = useState("");
   const [schoolCity, setSchoolCity] = useState("");
   const [schoolState, setSchoolState] = useState("");
-  const [schoolDivision, setSchoolDivision] = useState("");
 
   const fieldErrors = result && !result.ok ? result.fieldErrors : undefined;
   const success = result?.ok ? result : null;
@@ -62,7 +58,6 @@ export function InviteSchoolDialog({
     setSchoolName("");
     setSchoolCity("");
     setSchoolState("");
-    setSchoolDivision("");
     setCopied(false);
   }
 
@@ -75,7 +70,6 @@ export function InviteSchoolDialog({
         schoolName: schoolName.trim(),
         schoolCity: schoolCity.trim() || undefined,
         schoolState: schoolState.trim() || undefined,
-        division: schoolDivision || undefined,
         contactName: contactName.trim(),
         contactEmail: contactEmail.trim(),
       });
@@ -150,14 +144,6 @@ export function InviteSchoolDialog({
                 placeholder="Pendleton Heights High School"
                 error={fieldErrors?.schoolName}
               />
-              {divisionOptions.length > 0 ? (
-                <DivisionField
-                  value={schoolDivision}
-                  onChange={setSchoolDivision}
-                  options={divisionOptions}
-                  error={fieldErrors?.division}
-                />
-              ) : null}
               <div className="grid grid-cols-[1fr_120px] gap-3">
                 <Field
                   label="City"
@@ -193,7 +179,7 @@ export function InviteSchoolDialog({
               </button>
               <button
                 type="submit"
-                disabled={pending || (divisionOptions.length > 0 && !schoolDivision)}
+                disabled={pending}
                 className={cn(
                   buttonVariants({ size: "sm" }),
                   "bg-[color:var(--brand-crimson)] text-white hover:bg-[color:var(--brand-crimson-deep)] disabled:opacity-60",
@@ -235,7 +221,6 @@ function SuccessView({
         <DialogDescription>
           {success.contactName} ({success.contactEmail}) can claim the school with the link
           below. If email is configured we also sent it to them — it expires in 30 days.
-          {success.divisionLabel ? ` Division: ${success.divisionLabel}.` : ""}
         </DialogDescription>
       </DialogHeader>
 
@@ -280,51 +265,6 @@ function SuccessView({
           Done
         </button>
       </div>
-    </div>
-  );
-}
-
-function DivisionField({
-  value,
-  onChange,
-  options,
-  error,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: LeagueDivisionOption[];
-  error?: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-[12px]">School division</Label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          "h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          error && "border-[color:var(--brand-crimson)]/60",
-        )}
-      >
-        <option value="">Choose division</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {value ? (
-        <p className="text-[11px] text-muted-foreground">
-          {options.find((option) => option.value === value)?.description ?? "League-specific grouping."}
-        </p>
-      ) : (
-        <p className="text-[11px] text-muted-foreground">
-          Required for this league.
-        </p>
-      )}
-      {error ? (
-        <p className="text-[11px] text-[color:var(--brand-crimson)]">{error}</p>
-      ) : null}
     </div>
   );
 }

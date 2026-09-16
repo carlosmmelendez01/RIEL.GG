@@ -19,19 +19,16 @@ import { LeagueAdminEmptyState } from "@/components/admin/empty-state";
 import { InviteSchoolDialog } from "@/components/admin/invite-school-dialog";
 import { ManageSchoolDivisionsDialog } from "@/components/admin/manage-school-divisions-dialog";
 import { PendingApplicationsCard } from "@/components/admin/pending-applications-card";
-import { SchoolDivisionSelect } from "@/components/admin/school-division-select";
+import { SchoolClassificationOverride } from "@/components/admin/school-classification-override";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
-  loadLeagueSchools,
+  loadLeagueSchoolDirectory,
   loadPendingApplications,
   requireLeagueAdmin,
   type LeagueSchoolRow,
 } from "@/lib/league-admin/dashboard";
-import {
-  getLeagueDivisionOptions,
-  type LeagueDivisionOption,
-} from "@/lib/league/divisions";
+import type { DivisionOption } from "@/lib/classification/season-service";
 
 export default async function AdminSchoolsPage() {
   const user = await getCurrentUser();
@@ -49,11 +46,11 @@ export default async function AdminSchoolsPage() {
     );
   }
 
-  const [schools, pending] = await Promise.all([
-    loadLeagueSchools(ctx.league.id),
+  const [directory, pending] = await Promise.all([
+    loadLeagueSchoolDirectory(ctx.league.id),
     loadPendingApplications(ctx.league.id),
   ]);
-  const divisionOptions = getLeagueDivisionOptions(ctx.league);
+  const { schools, divisions } = directory;
 
   return (
     <>
@@ -63,10 +60,7 @@ export default async function AdminSchoolsPage() {
       />
 
       <main className="flex-1 space-y-8 px-6 py-6 md:px-8">
-        <PendingApplicationsCard
-          applications={pending}
-          divisionOptions={divisionOptions}
-        />
+        <PendingApplicationsCard applications={pending} />
 
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -82,12 +76,11 @@ export default async function AdminSchoolsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <ManageSchoolDivisionsDialog
                 leagueName={ctx.league.name}
-                options={divisionOptions}
+                options={divisions}
               />
               {schools.length > 0 ? (
                 <InviteSchoolDialog
                   leagueName={ctx.league.name}
-                  divisionOptions={divisionOptions}
                 />
               ) : null}
             </div>
@@ -101,12 +94,9 @@ export default async function AdminSchoolsPage() {
                 <div className="flex flex-wrap justify-center gap-2">
                   <ManageSchoolDivisionsDialog
                     leagueName={ctx.league.name}
-                    options={divisionOptions}
+                    options={divisions}
                   />
-                  <InviteSchoolDialog
-                    leagueName={ctx.league.name}
-                    divisionOptions={divisionOptions}
-                  />
+                  <InviteSchoolDialog leagueName={ctx.league.name} />
                 </div>
               }
             />
@@ -116,7 +106,7 @@ export default async function AdminSchoolsPage() {
                 <SchoolCard
                   key={s.schoolId}
                   school={s}
-                  divisionOptions={divisionOptions}
+                  divisions={divisions}
                 />
               ))}
             </div>
@@ -131,10 +121,10 @@ export default async function AdminSchoolsPage() {
 
 function SchoolCard({
   school,
-  divisionOptions,
+  divisions,
 }: {
   school: LeagueSchoolRow;
-  divisionOptions: LeagueDivisionOption[];
+  divisions: DivisionOption[];
 }) {
   const monogram = (school.shortName ?? school.name)
     .replace(/[^A-Za-z]/g, "")
@@ -156,18 +146,12 @@ function SchoolCard({
                 {school.shortName ? school.name : ""}
                 {school.city ? `${school.shortName ? " · " : ""}${school.city}, ${school.state ?? ""}` : ""}
               </p>
-              {divisionOptions.length > 0 ? (
-                <SchoolDivisionSelect
-                  schoolId={school.schoolId}
-                  schoolName={school.name}
-                  value={school.division}
-                  options={divisionOptions}
-                />
-              ) : school.divisionLabel ? (
-                <span className="mt-1 inline-flex items-center rounded-sm border border-[color:var(--brand-purple)]/30 bg-[color:var(--brand-purple)]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[color:var(--brand-purple)]">
-                  {school.divisionLabel}
-                </span>
-              ) : null}
+              <SchoolClassificationOverride
+                schoolId={school.schoolId}
+                schoolName={school.name}
+                classification={school.classification}
+                divisions={divisions}
+              />
             </div>
             {school.ncesId ? (
               <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1 py-0 text-[9px] font-semibold uppercase tracking-wider text-emerald-500">

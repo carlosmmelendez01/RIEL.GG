@@ -98,6 +98,7 @@ export interface NcesImportStore {
   }): Promise<SchoolUpsertResult>;
   findCcdSchoolByExternalId(externalId: string): Promise<{ id: string } | null>;
   upsertEnrollment(input: EnrollmentUpsertInput): Promise<{ created: boolean; updated: boolean }>;
+  recalculateClassificationsForSchools?(schoolIds: string[]): Promise<void>;
 }
 
 export type NcesImportRowError = {
@@ -199,6 +200,7 @@ export async function importNcesCcd(options: ImportNcesCcdOptions): Promise<Nces
     errorCount: 0,
     errors,
   };
+  const schoolsWithEnrollment = new Set<string>();
 
   const importRun = await options.store.createImportRun({
     release: release.release,
@@ -234,7 +236,11 @@ export async function importNcesCcd(options: ImportNcesCcdOptions): Promise<Nces
       rowReader: options.rowReader,
       completion,
       recordError,
+      schoolsWithEnrollment,
     });
+    if (schoolsWithEnrollment.size > 0) {
+      await options.store.recalculateClassificationsForSchools?.([...schoolsWithEnrollment]);
+    }
     await options.store.completeImportRun(importRun.id, completion);
     return { status: "completed", release, importId: importRun.id, ...completion };
   } catch (error) {
@@ -401,6 +407,7 @@ async function importMembershipRows(input: {
   rowReader: CcdRowReader;
   completion: ImportRunCompletion;
   recordError: (error: NcesImportRowError) => void;
+  schoolsWithEnrollment: Set<string>;
 }) {
   let currentExternalId: string | null = null;
   let currentRows: CcdRow[] = [];
@@ -419,6 +426,7 @@ async function importMembershipRows(input: {
       store: input.store,
       completion: input.completion,
       recordError: input.recordError,
+      schoolsWithEnrollment: input.schoolsWithEnrollment,
     });
     currentExternalId = null;
     currentRows = [];
@@ -471,6 +479,7 @@ async function importMembershipForSchool(input: {
   store: NcesImportStore;
   completion: ImportRunCompletion;
   recordError: (error: NcesImportRowError) => void;
+  schoolsWithEnrollment: Set<string>;
 }) {
   try {
     const school = await input.store.findCcdSchoolByExternalId(input.externalId);
@@ -495,6 +504,7 @@ async function importMembershipForSchool(input: {
         notes: `By-grade counts: ${JSON.stringify(grades912.byGrade)}`,
       });
       input.completion.enrollmentRows += 1;
+      input.schoolsWithEnrollment.add(school.id);
     }
 
     const total = totalEnrollment(input.rows);

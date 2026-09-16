@@ -25,9 +25,9 @@ import {
   type CheckInReviewState,
 } from "@/lib/match/check-in-policy";
 import {
-  getLeagueDivisionOptions,
-  labelForLeagueDivision,
-} from "@/lib/league/divisions";
+  listLeagueDivisions,
+  type DivisionOption,
+} from "@/lib/classification/season-service";
 
 // --- Types --------------------------------------------------------------
 
@@ -37,7 +37,6 @@ export type AdminLeague = {
   name: string;
   shortName: string;
   classification: string;
-  schoolDivisions: unknown;
 };
 
 export type AdminContext = {
@@ -133,7 +132,6 @@ export async function requireLeagueAdmin(userId: string): Promise<AdminContext |
           slug: true,
           name: true,
           classification: true,
-          schoolDivisions: true,
         },
       },
     },
@@ -148,7 +146,6 @@ export async function requireLeagueAdmin(userId: string): Promise<AdminContext |
     name: primary.league.name,
     shortName: shortNameFor(primary.league.name),
     classification: primary.league.classification,
-    schoolDivisions: primary.league.schoolDivisions,
   };
   const agreementStatus = await loadLeagueAgreementStatus(league.id);
   if (!agreementStatus.accepted) return null;
@@ -159,7 +156,6 @@ export async function requireLeagueAdmin(userId: string): Promise<AdminContext |
     name: a.league.name,
     shortName: shortNameFor(a.league.name),
     classification: a.league.classification,
-    schoolDivisions: a.league.schoolDivisions,
   }));
 
   return {
@@ -380,8 +376,20 @@ export type LeagueSchoolRow = {
   ncesId: string | null;
   state: string | null;
   city: string | null;
-  division: string | null;
-  divisionLabel: string | null;
+  classification: {
+    seasonId: string;
+    seasonName: string;
+    divisionId: string | null;
+    divisionName: string | null;
+    calculatedDivisionName: string | null;
+    status: string;
+    method: string;
+    explanation: string;
+    overrideReason: string | null;
+    reviewNeeded: boolean;
+    reviewReason: string | null;
+    lockedAt: Date | null;
+  } | null;
   joinedAt: Date;
   teamCount: number;
   playerCount: number;
@@ -391,18 +399,28 @@ export type LeagueSchoolRow = {
   agreementCoverageSource: string | null;
 };
 
+export type LeagueSchoolDirectoryData = {
+  schools: LeagueSchoolRow[];
+  divisions: DivisionOption[];
+};
+
 /**
  * Every school in the admin's league with team + player + coach counts.
  * Used by /admin/schools.
  */
 export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolRow[]> {
+  const data = await loadLeagueSchoolDirectory(leagueId);
+  return data.schools;
+}
+
+export async function loadLeagueSchoolDirectory(
+  leagueId: string,
+): Promise<LeagueSchoolDirectoryData> {
   const memberships = await prisma.leagueMembership.findMany({
     where: { leagueId },
     orderBy: { joinedAt: "asc" },
     select: {
-      division: true,
       joinedAt: true,
-      league: { select: { name: true, slug: true, classification: true } },
       school: {
         select: {
           id: true,
@@ -443,15 +461,42 @@ export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolR
       },
     },
   });
-  const divisionOptions = memberships[0]
-    ? getLeagueDivisionOptions({
-        name: memberships[0].league.name,
-        slug: memberships[0].league.slug,
-        classification: memberships[0].league.classification,
+
+  const schoolIds = memberships.map((m) => m.school.id);
+  const [season, divisions] = await Promise.all([
+    prisma.season.findFirst({
+      where: { leagueId },
+      orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+      select: { id: true, name: true },
+    }),
+    listLeagueDivisions(leagueId),
+  ]);
+  const classificationRows = season && schoolIds.length > 0
+    ? await prisma.seasonSchoolClassification.findMany({
+        where: {
+          seasonId: season.id,
+          schoolId: { in: schoolIds },
+        },
+        select: {
+          schoolId: true,
+          status: true,
+          method: true,
+          explanation: true,
+          overrideReason: true,
+          reviewNeeded: true,
+          reviewReason: true,
+          lockedAt: true,
+          effectiveDivisionId: true,
+          calculatedDivision: { select: { name: true } },
+          effectiveDivision: { select: { name: true } },
+        },
       })
     : [];
+  const classificationBySchool = new Map(
+    classificationRows.map((row) => [row.schoolId, row]),
+  );
 
-  return memberships.map((m) => {
+  const schools = memberships.map((m) => {
     const teamCount = m.school.teams.length;
     let playerCount = 0;
     const coachIds = new Set<string>();
@@ -461,6 +506,7 @@ export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolR
         for (const c of r.members) coachIds.add(c.userId);
       }
     }
+    const classification = season ? classificationBySchool.get(m.school.id) : null;
     return {
       schoolId: m.school.id,
       name: m.school.name,
@@ -468,8 +514,22 @@ export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolR
       ncesId: m.school.ncesId,
       state: m.school.state,
       city: m.school.city,
-      division: m.division,
-      divisionLabel: labelForLeagueDivision(divisionOptions, m.division),
+      classification: classification && season
+        ? {
+            seasonId: season.id,
+            seasonName: season.name,
+            divisionId: classification.effectiveDivisionId,
+            divisionName: classification.effectiveDivision?.name ?? null,
+            calculatedDivisionName: classification.calculatedDivision?.name ?? null,
+            status: classification.status,
+            method: classification.method,
+            explanation: classification.explanation,
+            overrideReason: classification.overrideReason,
+            reviewNeeded: classification.reviewNeeded,
+            reviewReason: classification.reviewReason,
+            lockedAt: classification.lockedAt,
+          }
+        : null,
       joinedAt: m.joinedAt,
       teamCount,
       playerCount,
@@ -479,6 +539,8 @@ export async function loadLeagueSchools(leagueId: string): Promise<LeagueSchoolR
       agreementCoverageSource: m.school.agreementAcceptances[0]?.coverageSource ?? null,
     };
   });
+
+  return { schools, divisions };
 }
 
 // --- Pending school applications ---------------------------------------

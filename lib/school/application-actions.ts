@@ -87,7 +87,18 @@ export async function applyToLeague(input: ApplyToLeagueInput): Promise<ApplyToL
   // If the applicant picked an NCES id we already track, link it to the
   // existing School row so duplicate submissions cluster.
   const existingSchool = data.ncesId
-    ? await prisma.school.findUnique({ where: { ncesId: data.ncesId }, select: { id: true } })
+    ? await prisma.school.findFirst({
+        where: {
+          OR: [
+            {
+              directorySource: "CCD",
+              externalId: data.ncesId,
+            },
+            { ncesId: data.ncesId },
+          ],
+        },
+        select: { id: true },
+      })
     : null;
 
   // De-dupe: same league + same school + still pending → reuse instead of
@@ -216,8 +227,16 @@ export async function approveSchoolApplication(
     // 1) School: prefer the linked one, then by NCES id, otherwise create.
     let schoolId = app.schoolId;
     if (!schoolId && app.ncesId) {
-      const byNces = await tx.school.findUnique({
-        where: { ncesId: app.ncesId },
+      const byNces = await tx.school.findFirst({
+        where: {
+          OR: [
+            {
+              directorySource: "CCD",
+              externalId: app.ncesId,
+            },
+            { ncesId: app.ncesId },
+          ],
+        },
         select: { id: true },
       });
       if (byNces) schoolId = byNces.id;

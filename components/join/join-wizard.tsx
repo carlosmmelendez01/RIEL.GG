@@ -12,7 +12,7 @@
  * step.
  */
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -42,25 +42,15 @@ import {
   applyToLeague,
   type ApplyToLeagueResult,
 } from "@/lib/school/application-actions";
+import {
+  searchDirectorySchools,
+  type JoinDirectorySchool,
+} from "@/lib/school/directory-actions";
 import { cn } from "@/lib/utils";
 
 // --- Reference data ----------------------------------------------------
 
-// Curated NCES sample. Production wires this to a real NCES lookup; for now
-// it's a fixed list of Indiana schools so the picker feels real. Applicants
-// can also propose a school we don't track (handled in the "no results" path).
-const NCES_SCHOOLS = [
-  { id: "nces-001", name: "Michigan City High School", city: "Michigan City", state: "IN", code: "MCH", ncesId: "1801560-001", verified: true },
-  { id: "nces-002", name: "Carmel High School", city: "Carmel", state: "IN", code: "CAR", ncesId: "1804860-002", verified: true },
-  { id: "nces-003", name: "Fishers High School", city: "Fishers", state: "IN", code: "FHS", ncesId: "1808340-003", verified: true },
-  { id: "nces-004", name: "Plainfield High School", city: "Plainfield", state: "IN", code: "PFD", ncesId: "1813140-004", verified: true },
-  { id: "nces-005", name: "Westfield High School", city: "Westfield", state: "IN", code: "WST", ncesId: "1816530-005", verified: true },
-  { id: "nces-006", name: "Hamilton Southeastern HS", city: "Fishers", state: "IN", code: "HSE", ncesId: "1809720-006", verified: true },
-  { id: "nces-007", name: "Zionsville Community HS", city: "Zionsville", state: "IN", code: "ZON", ncesId: "1817820-007", verified: true },
-  { id: "nces-008", name: "Bishop Chatard HS", city: "Indianapolis", state: "IN", code: "BCH", ncesId: "1803960-008", verified: true },
-] as const;
-
-type NcesSchool = (typeof NCES_SCHOOLS)[number];
+type NcesSchool = JoinDirectorySchool;
 
 // --- Props -------------------------------------------------------------
 
@@ -89,6 +79,12 @@ export function JoinWizard({ leagues }: { leagues: JoinLeagueOption[] }) {
   const [schoolQuery, setSchoolQuery] = useState("");
   const [expandedSearch, setExpandedSearch] = useState(false);
   const [pickedSchool, setPickedSchool] = useState<NcesSchool | null>(null);
+  const [schoolSearch, setSchoolSearch] = useState<{
+    query: string;
+    schools: NcesSchool[];
+    error: string | null;
+  }>({ query: "", schools: [], error: null });
+  const [schoolSearchPending, startSchoolSearchTransition] = useTransition();
 
   // Stage 3
   const [coachName, setCoachName] = useState("");
@@ -112,16 +108,35 @@ export function JoinWizard({ leagues }: { leagues: JoinLeagueOption[] }) {
     );
   }, [leagueQuery, leagues]);
 
-  const filteredSchools = useMemo(() => {
-    const q = schoolQuery.trim().toLowerCase();
-    if (!q) return [];
-    return NCES_SCHOOLS.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.city.toLowerCase().includes(q) ||
-        s.code.toLowerCase().includes(q),
-    );
+  useEffect(() => {
+    const query = schoolQuery.trim();
+    let cancelled = false;
+
+    if (query.length < 2) return;
+
+    const timeout = window.setTimeout(() => {
+      startSchoolSearchTransition(async () => {
+        const result = await searchDirectorySchools({ query });
+        if (cancelled) return;
+        if (result.ok) {
+          setSchoolSearch({ query, schools: result.schools, error: null });
+        } else {
+          setSchoolSearch({ query, schools: [], error: result.error });
+        }
+      });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
   }, [schoolQuery]);
+
+  const trimmedSchoolQuery = schoolQuery.trim();
+  const visibleSchoolSearch =
+    schoolSearch.query === trimmedSchoolQuery
+      ? schoolSearch
+      : { query: trimmedSchoolQuery, schools: [], error: null };
 
   function handleSubmit() {
     if (!pickedLeague || !pickedSchool) return;
@@ -132,8 +147,8 @@ export function JoinWizard({ leagues }: { leagues: JoinLeagueOption[] }) {
         leagueSlug: pickedLeague.slug,
         schoolName: pickedSchool.name,
         schoolShort: pickedSchool.code,
-        schoolCity: pickedSchool.city,
-        schoolState: pickedSchool.state,
+        schoolCity: pickedSchool.city ?? undefined,
+        schoolState: pickedSchool.state ?? undefined,
         schoolCode: pickedSchool.code,
         ncesId: pickedSchool.ncesId,
         coachName: coachName.trim(),
@@ -166,7 +181,7 @@ export function JoinWizard({ leagues }: { leagues: JoinLeagueOption[] }) {
           <Link href="/" aria-label="ArcLight home">
             <ArcLightLockup />
           </Link>
-          <Link href="/" className="text-xs text-muted-foreground hover:text-foreground">
+          <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground">
             Already a member? Sign in
           </Link>
         </div>
@@ -197,10 +212,15 @@ export function JoinWizard({ leagues }: { leagues: JoinLeagueOption[] }) {
             <SchoolStep
               league={pickedLeague}
               query={schoolQuery}
-              setQuery={setSchoolQuery}
+              setQuery={(value) => {
+                setSchoolQuery(value);
+                setPickedSchool(null);
+              }}
               expanded={expandedSearch}
               setExpanded={setExpandedSearch}
-              schools={filteredSchools}
+              schools={visibleSchoolSearch.schools}
+              pending={schoolSearchPending}
+              error={visibleSchoolSearch.error}
               picked={pickedSchool}
               onPick={(s) => {
                 setPickedSchool(s);
@@ -304,7 +324,7 @@ function NoLeagues() {
           No leagues are accepting public applications right now.
         </h3>
         <p className="max-w-md text-balance text-[13px] leading-relaxed text-muted-foreground">
-          Reach out to your league administrator for a direct invite link, or email{" "}
+          Reach out to the league office for a direct invite link, or email{" "}
           <span className="font-mono">hello@riel.gg</span> and we&apos;ll connect you.
         </p>
         <Link
@@ -394,7 +414,7 @@ function LeagueStep({
         </div>
 
         <p className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-          Don&apos;t see your league? Ask the league administrator for a direct invite link.
+          Don&apos;t see your league? Ask the league office for a direct invite link.
         </p>
       </CardContent>
     </Card>
@@ -410,6 +430,8 @@ function SchoolStep({
   expanded,
   setExpanded,
   schools,
+  pending,
+  error,
   picked,
   onPick,
   onBack,
@@ -420,6 +442,8 @@ function SchoolStep({
   expanded: boolean;
   setExpanded: (b: boolean) => void;
   schools: ReadonlyArray<NcesSchool>;
+  pending: boolean;
+  error: string | null;
   picked: NcesSchool | null;
   onPick: (s: NcesSchool) => void;
   onBack: () => void;
@@ -465,7 +489,25 @@ function SchoolStep({
           </p>
         ) : null}
 
-        {schools.length > 0 ? (
+        {query.trim().length === 1 ? (
+          <p className="rounded-md border border-border/60 bg-background/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            Keep typing to search the school directory.
+          </p>
+        ) : null}
+
+        {pending ? (
+          <p className="rounded-md border border-border/60 bg-background/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            Searching schools…
+          </p>
+        ) : null}
+
+        {error ? (
+          <div className="rounded-md border border-[color:var(--brand-crimson)]/40 bg-[color:var(--brand-crimson)]/10 p-3 text-[12px] text-[color:var(--brand-crimson)]">
+            {error}
+          </div>
+        ) : null}
+
+        {!pending && !error && schools.length > 0 ? (
           <div className="space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {schools.length} {schools.length === 1 ? "match" : "matches"}
@@ -497,21 +539,21 @@ function SchoolStep({
                     ) : null}
                   </div>
                   <p className="truncate text-[11px] text-muted-foreground">
-                    {s.city}, {s.state}
+                    {[s.city, s.state].filter(Boolean).join(", ")}
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
             ))}
           </div>
-        ) : query.length > 0 ? (
+        ) : !pending && !error && query.trim().length >= 2 ? (
           <div className="rounded-md border border-orange-500/30 bg-orange-500/5 p-4 text-center">
             <p className="text-[13px] text-foreground">
               No results for &quot;<span className="font-semibold">{query}</span>&quot;
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               Make sure the spelling matches the school&apos;s official name. If it&apos;s a brand-new
-              school, ask your league admin to add it manually.
+              school, ask the league office to add it manually.
             </p>
           </div>
         ) : null}

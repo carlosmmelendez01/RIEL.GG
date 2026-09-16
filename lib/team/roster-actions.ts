@@ -28,7 +28,6 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { isSupportedGame } from "@/lib/games/supported";
-import { evaluateTeamCompetitionEligibility } from "@/lib/eligibility/team-competition";
 import { emailUrl, sendEmail } from "@/lib/email/send";
 import { RosterApproved, rosterApprovedText } from "@/lib/email/templates/roster-approved";
 import { RosterRejected, rosterRejectedText } from "@/lib/email/templates/roster-rejected";
@@ -39,6 +38,10 @@ import {
 import { generateInviteCode } from "@/lib/invite/helpers";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
 import { loadSchoolAgreementStatus } from "@/lib/compliance/agreements";
+import {
+  registerTeamForCompetitionForUser,
+  type RegisterTeamForCompetitionResult,
+} from "@/lib/team/registration-service";
 
 // --- Shared types ------------------------------------------------------
 
@@ -189,9 +192,7 @@ const RegisterInput = z.object({
   competitionId: z.string().min(1),
 });
 
-export type RegisterTeamResult =
-  | { ok: true; rosterId: string; registrationStatus: "PENDING" | "APPROVED" }
-  | { ok: false; error: string };
+export type RegisterTeamResult = RegisterTeamForCompetitionResult;
 
 export async function registerTeamForCompetition(
   input: z.infer<typeof RegisterInput>,
@@ -203,160 +204,16 @@ export async function registerTeamForCompetition(
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "You need to be signed in." };
 
-  // Pull team + competition + scope context together for one round-trip.
-  const [team, competition] = await Promise.all([
-    prisma.team.findUnique({
-      where: { id: teamId },
-      select: {
-        id: true,
-        schoolId: true,
-        school: {
-          select: {
-            id: true,
-            name: true,
-            level: true,
-            lowGrade: true,
-            highGrade: true,
-          },
-        },
-        gameTitleId: true,
-        skillTier: true,
-        archived: true,
-      },
-    }),
-    prisma.competition.findUnique({
-      where: { id: competitionId },
-      select: {
-        id: true,
-        name: true,
-        gameTitleId: true,
-        gameTitle: { select: { slug: true } },
-        skillTier: true,
-        registrationOpensAt: true,
-        registrationClosesAt: true,
-        registrationRequiresApproval: true,
-        state: true,
-        status: true,
-        divisionId: true,
-        season: { select: { id: true, leagueId: true } },
-      },
-    }),
-  ]);
-
-  if (!team) return { ok: false, error: "Team not found." };
-  if (team.archived) return { ok: false, error: "This team is archived." };
-  if (!competition) return { ok: false, error: "Competition not found." };
-
-  const coach = await requireSchoolCoach(user.id, team.schoolId);
-
-  const [agreementAccepted, membership, classification, competitionRosters] = await Promise.all([
-    requireSchoolAgreement(team.schoolId),
-    prisma.leagueMembership.findUnique({
-      where: {
-        leagueId_schoolId: {
-          leagueId: competition.season.leagueId,
-          schoolId: team.schoolId,
-        },
-      },
-      select: { status: true },
-    }),
-    prisma.seasonSchoolClassification.findUnique({
-      where: {
-        seasonId_schoolId: {
-          seasonId: competition.season.id,
-          schoolId: team.schoolId,
-        },
-      },
-      select: { effectiveDivisionId: true },
-    }),
-    prisma.roster.findMany({
-      where: { competitionId },
-      select: {
-        id: true,
-        teamId: true,
-        registrationStatus: true,
-        team: { select: { schoolId: true } },
-      },
-    }),
-  ]);
-
-  const existing = competitionRosters.find((roster) => roster.teamId === teamId) ?? null;
-  const decision = evaluateTeamCompetitionEligibility({
-    now: new Date(),
-    school: {
-      id: team.school.id,
-      name: team.school.name,
-      level: team.school.level,
-      lowGrade: team.school.lowGrade,
-      highGrade: team.school.highGrade,
-      verifiedInLeague: membership?.status === "ACTIVE",
-      agreementAccepted,
-      divisionId: classification?.effectiveDivisionId ?? null,
-      classificationMissing: competition.divisionId !== null && !classification,
-    },
-    team: {
-      id: team.id,
-      gameTitleId: team.gameTitleId,
-      skillTier: team.skillTier,
-    },
-    competition: {
-      id: competition.id,
-      name: competition.name,
-      gameTitleId: competition.gameTitleId,
-      gameSlug: competition.gameTitle?.slug ?? "",
-      skillTier: competition.skillTier,
-      state: competition.state,
-      status: competition.status,
-      divisionId: competition.divisionId,
-      registrationOpensAt: competition.registrationOpensAt,
-      registrationClosesAt: competition.registrationClosesAt,
-    },
-    actor: { canRegister: coach !== null },
-    state: {
-      registeredTeamCount: competitionRosters.filter(
-        (roster) =>
-          roster.team.schoolId === team.schoolId && roster.registrationStatus !== "REJECTED",
-      ).length,
-      existingRosterId: existing?.id ?? null,
-    },
+  const result = await registerTeamForCompetitionForUser({
+    userId: user.id,
+    teamId,
+    competitionId,
   });
-  if (!decision.eligible) return { ok: false, error: decision.message };
-
-  const registrationStatus = competition.registrationRequiresApproval ? "PENDING" : "APPROVED";
-
-  const roster = await prisma.$transaction(async (tx) => {
-    const created = await tx.roster.create({
-      data: {
-        teamId,
-        competitionId,
-        registrationStatus,
-      },
-      select: { id: true },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        actorUserId: user.id,
-        action: "ROSTER.REGISTER",
-        entityType: "Roster",
-        entityId: created.id,
-        after: {
-          teamId,
-          competitionId,
-          status: registrationStatus,
-        },
-        leagueId: competition.season.leagueId,
-        competitionId: competition.id,
-        schoolId: team.schoolId,
-      },
-    });
-
-    return created;
-  });
-
-  revalidateCoachSurfaces(teamId);
-  revalidateAdminSurfaces(competition.id);
-  return { ok: true, rosterId: roster.id, registrationStatus };
+  if (result.ok) {
+    revalidateCoachSurfaces(teamId);
+    revalidateAdminSurfaces(competitionId);
+  }
+  return result;
 }
 
 // --- 3. addPlayerToRoster ---------------------------------------------

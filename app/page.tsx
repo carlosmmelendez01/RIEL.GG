@@ -1,13 +1,11 @@
 /**
  * Home / entry.
  *
- * v1 is an invite-only, single-league deployment for the Indiana Esports
- * Network — there's no public marketing funnel. Signed-in users route to
- * their workspace; everyone else gets a clean sign-in landing.
+ * Signed-in users route to their workspace; everyone else gets a clean sign-in
+ * landing with a path into the school application flow.
  *
  * The marketing site components (Hero, FeaturedLeagues, etc.) are kept in the
- * repo, just no longer routed here — so a public funnel can be switched back
- * on later without rebuilding it.
+ * repo, just no longer routed here.
  */
 
 import { redirect } from "next/navigation";
@@ -49,7 +47,7 @@ export default async function Home() {
           </h1>
           <p className="mx-auto mt-3 max-w-sm text-balance text-[14px] leading-relaxed text-muted-foreground">
             Run competitions, schedules, rosters, and playoffs in one place.
-            Access is invite-only — sign in with the email your league set up.
+            Sign in with your school email or apply your school to an active league.
           </p>
 
           <div className="mt-7 flex flex-col items-center gap-3">
@@ -78,7 +76,11 @@ export default async function Home() {
           </div>
 
           <p className="mt-8 text-[12px] text-muted-foreground">
-            Need access? Contact your league administrator for an invite.
+            Need access?{" "}
+            <Link href="/join" className="font-medium text-foreground hover:underline">
+              Apply your school
+            </Link>
+            .
           </p>
         </div>
       </main>

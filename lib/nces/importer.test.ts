@@ -101,6 +101,22 @@ describe("NCES CCD importer orchestration", () => {
     expect(result.errors.map((error) => error.phase)).toEqual(["directory", "membership"]);
     expect(store.importRuns[0].status).toBe("COMPLETED");
   });
+
+  it("marks the run failed when the row reader has a fatal stream error", async () => {
+    const release = testRelease();
+    const store = new FakeStore();
+    const reader: CcdRowReader = {
+      async streamRows() {
+        throw new Error("download stream terminated");
+      },
+    };
+
+    await expect(importNcesCcd({ release, rowReader: reader, store })).rejects.toThrow("download stream terminated");
+
+    expect(store.importRuns[0].status).toBe("FAILED");
+    expect(store.importRuns[0].completion?.errorCount).toBe(1);
+    expect(store.importRuns[0].completion?.errors[0]?.message).toBe("download stream terminated");
+  });
 });
 
 function fileApiRow(schoolYear: string, component: string, fileURL: string) {

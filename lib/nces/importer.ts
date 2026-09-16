@@ -1,8 +1,14 @@
-import { Readable } from "node:stream";
-import type { ReadableStream as NodeReadableStream } from "node:stream/web";
+import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { get as httpGet } from "node:http";
+import { get as httpsGet } from "node:https";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Transform, type Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 import Papa from "papaparse";
-import unzipper, { type Entry } from "unzipper";
 
 import {
   CcdRowError,
@@ -240,30 +246,122 @@ export async function importNcesCcd(options: ImportNcesCcdOptions): Promise<Nces
 
 export class ZipCsvCcdRowReader implements CcdRowReader {
   async streamRows(file: CcdImportFile, onRow: (row: CcdRow, context: CsvRowContext) => Promise<void>): Promise<void> {
-    const response = await fetch(file.fileURL);
-    if (!response.ok) {
-      throw new Error(`Failed to download ${file.fileURL}: ${response.status} ${response.statusText}`);
-    }
-    if (!response.body) throw new Error(`Download response for ${file.fileURL} did not include a body.`);
-
-    const zip = Readable.fromWeb(response.body as unknown as NodeReadableStream<Uint8Array>).pipe(
-      unzipper.Parse({ forceStream: true }),
-    );
-    let matched = false;
-
-    for await (const entry of zip as AsyncIterable<Entry>) {
-      if (!matched && entry.type === "File" && isCsvEntry(entry.path)) {
-        matched = true;
-        await parseCsvEntry(entry, onRow);
-      } else {
-        entry.autodrain();
-      }
-    }
-
-    if (!matched) {
-      throw new Error(`No CSV/TXT flat-file entry found in ${file.fileURL}.`);
+    const tempDir = await mkdtemp(join(tmpdir(), "riel-nces-"));
+    try {
+      const zipPath = join(tempDir, file.fileName);
+      await downloadValidZipToFile(file, zipPath);
+      await streamZipFileRows(zipPath, file, onRow);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
     }
   }
+}
+
+async function downloadValidZipToFile(file: CcdImportFile, zipPath: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await rm(zipPath, { force: true });
+      await downloadZipToFile(file, zipPath);
+      await validateCsvEntry(zipPath, file);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await wait(attempt * 1000);
+    }
+  }
+
+  const message = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`Failed to download a valid ZIP for ${file.fileURL} after 3 attempts: ${message}`);
+}
+
+async function downloadZipToFile(file: CcdImportFile, zipPath: string): Promise<void> {
+  await downloadUrlToFile(file.fileURL, zipPath);
+}
+
+async function downloadUrlToFile(url: string, zipPath: string, redirectCount = 0): Promise<void> {
+  if (redirectCount > 3) throw new Error(`Too many redirects while downloading ${url}.`);
+
+  await new Promise<void>((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const get = parsedUrl.protocol === "http:" ? httpGet : httpsGet;
+    const request = get(
+      parsedUrl,
+      {
+        headers: {
+          "accept-encoding": "identity",
+          "user-agent": "RIEL NCES importer",
+        },
+      },
+      (response) => {
+        void (async () => {
+          const status = response.statusCode ?? 0;
+          if (status >= 300 && status < 400 && response.headers.location) {
+            response.resume();
+            await downloadUrlToFile(new URL(response.headers.location, parsedUrl).toString(), zipPath, redirectCount + 1);
+            return;
+          }
+
+          if (status < 200 || status >= 300) {
+            response.resume();
+            throw new Error(`Failed to download ${url}: ${status} ${response.statusMessage ?? ""}`.trim());
+          }
+
+          const expectedLength = contentLengthHeader(response.headers["content-length"]);
+          let bytesWritten = 0;
+          const counter = new Transform({
+            transform(chunk: Buffer, _encoding: BufferEncoding, callback: (error: Error | null, data?: Buffer) => void) {
+              bytesWritten += chunk.byteLength;
+              callback(null, chunk);
+            },
+          });
+
+          await pipeline(response, counter, createWriteStream(zipPath));
+
+          if (expectedLength !== null && bytesWritten !== expectedLength) {
+            throw new Error(`Downloaded ${bytesWritten} bytes from ${url}; expected ${expectedLength}.`);
+          }
+        })().then(resolve, reject);
+      },
+    );
+    request.setTimeout(300_000, () => request.destroy(new Error(`Timed out downloading ${url}.`)));
+    request.on("error", reject);
+  });
+}
+
+function contentLengthHeader(value: number | string | string[] | undefined): number | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return null;
+  const length = Number(raw);
+  return Number.isSafeInteger(length) && length >= 0 ? length : null;
+}
+
+async function findCsvEntryPath(zipPath: string, file: CcdImportFile): Promise<string> {
+  const output = await captureCommand("unzip", ["-Z1", zipPath]);
+  const entryPath = output
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .find((entry) => entry.length > 0 && isCsvEntry(entry));
+  if (entryPath) return entryPath;
+  throw new Error(`No CSV/TXT flat-file entry found in ${file.fileURL}.`);
+}
+
+async function validateCsvEntry(zipPath: string, file: CcdImportFile): Promise<void> {
+  const entryPath = await findCsvEntryPath(zipPath, file);
+  await runCommand("unzip", ["-t", zipPath, entryPath]);
+}
+
+async function wait(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function streamZipFileRows(
+  zipPath: string,
+  file: CcdImportFile,
+  onRow: (row: CcdRow, context: CsvRowContext) => Promise<void>,
+): Promise<void> {
+  const entryPath = await findCsvEntryPath(zipPath, file);
+  await streamCommandStdout("unzip", ["-p", zipPath, entryPath], (stream) => parseCsvStream(entryPath, stream, onRow));
 }
 
 async function importDirectoryRows(input: {
@@ -417,8 +515,9 @@ async function importMembershipForSchool(input: {
   }
 }
 
-async function parseCsvEntry(
-  entry: Entry,
+async function parseCsvStream(
+  entryPath: string,
+  stream: Readable,
   onRow: (row: CcdRow, context: CsvRowContext) => Promise<void>,
 ): Promise<void> {
   const parser = Papa.parse(Papa.NODE_STREAM_INPUT, {
@@ -427,11 +526,78 @@ async function parseCsvEntry(
     transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
   });
 
-  entry.pipe(parser);
+  stream.on("error", (error) => parser.destroy(error));
+  stream.pipe(parser);
   let rowNumber = 1;
-  for await (const row of parser as AsyncIterable<Record<string, unknown>>) {
-    await onRow(normalizeCsvRow(row), { entryPath: entry.path, rowNumber });
-    rowNumber += 1;
+  await withSuppressedPapaDuplicateHeaderWarnings(async () => {
+    for await (const row of parser as AsyncIterable<Record<string, unknown>>) {
+      await onRow(normalizeCsvRow(row), { entryPath, rowNumber });
+      rowNumber += 1;
+    }
+  });
+}
+
+async function captureCommand(command: string, args: string[]): Promise<string> {
+  let stdout = "";
+  await streamCommandStdout(command, args, async (stream) => {
+    stream.setEncoding("utf8");
+    for await (const chunk of stream) {
+      stdout += chunk;
+    }
+  });
+  return stdout;
+}
+
+async function runCommand(command: string, args: string[]): Promise<void> {
+  await streamCommandStdout(command, args, async (stream) => {
+    stream.resume();
+    await new Promise<void>((resolve, reject) => {
+      stream.on("end", resolve);
+      stream.on("error", reject);
+    });
+  });
+}
+
+async function streamCommandStdout(
+  command: string,
+  args: string[],
+  consumeStdout: (stream: Readable) => Promise<void>,
+): Promise<void> {
+  const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk: string) => {
+    stderr = `${stderr}${chunk}`.slice(-2000);
+  });
+
+  const exitPromise = new Promise<void>((resolve, reject) => {
+    child.on("error", (error) => reject(error));
+    child.on("close", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${command} ${args.join(" ")} failed with ${signal ?? `exit ${code}`}: ${stderr.trim()}`));
+    });
+  });
+
+  try {
+    await consumeStdout(child.stdout);
+    await exitPromise;
+  } catch (error) {
+    child.kill();
+    throw error;
+  }
+}
+
+async function withSuppressedPapaDuplicateHeaderWarnings<T>(fn: () => Promise<T>): Promise<T> {
+  const originalWarn = console.warn;
+  console.warn = (message?: unknown, ...optionalParams: unknown[]) => {
+    if (typeof message === "string" && message.includes("Duplicate headers found and renamed")) return;
+    originalWarn(message, ...optionalParams);
+  };
+
+  try {
+    return await fn();
+  } finally {
+    console.warn = originalWarn;
   }
 }
 

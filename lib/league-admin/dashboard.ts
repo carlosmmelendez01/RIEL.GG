@@ -25,7 +25,9 @@ import {
   type CheckInReviewState,
 } from "@/lib/match/check-in-policy";
 import {
+  listLeagueDivisionRules,
   listLeagueDivisions,
+  type DivisionRuleOption,
   type DivisionOption,
 } from "@/lib/classification/season-service";
 
@@ -402,6 +404,8 @@ export type LeagueSchoolRow = {
 export type LeagueSchoolDirectoryData = {
   schools: LeagueSchoolRow[];
   divisions: DivisionOption[];
+  rules: DivisionRuleOption[];
+  season: { id: string; name: string } | null;
 };
 
 /**
@@ -467,10 +471,13 @@ export async function loadLeagueSchoolDirectory(
     prisma.season.findFirst({
       where: { leagueId },
       orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
-      select: { id: true, name: true },
+      select: { id: true, name: true, startsAt: true },
     }),
     listLeagueDivisions(leagueId),
   ]);
+  const rules = season
+    ? await listLeagueDivisionRules(leagueId, season.startsAt)
+    : [];
   const classificationRows = season && schoolIds.length > 0
     ? await prisma.seasonSchoolClassification.findMany({
         where: {
@@ -540,7 +547,12 @@ export async function loadLeagueSchoolDirectory(
     };
   });
 
-  return { schools, divisions };
+  return {
+    schools,
+    divisions,
+    rules,
+    season: season ? { id: season.id, name: season.name } : null,
+  };
 }
 
 // --- Pending school applications ---------------------------------------

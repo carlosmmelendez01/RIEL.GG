@@ -5,8 +5,13 @@ import {
   type ClassificationResult,
   type DivisionRule as DomainDivisionRule,
   type EnrollmentRecord,
+  type SchoolLevel,
 } from "@/lib/domain/classification";
 import { prisma } from "@/lib/db/prisma";
+import {
+  validateDivisionRuleConfiguration,
+  type ProposedDivisionRule,
+} from "@/lib/classification/rule-configuration";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -67,6 +72,27 @@ export type DivisionOption = {
   sortOrder: number;
 };
 
+export type DivisionRuleOption = ProposedDivisionRule & {
+  id: string;
+  divisionName: string | null;
+};
+
+export type DivisionRulePreviewRow = {
+  schoolId: string;
+  schoolName: string;
+  schoolLevel: SchoolLevel | null;
+  enrollment: number | null;
+  status: ClassificationResult["status"];
+  divisionName: string | null;
+  explanation: string;
+};
+
+export type DivisionRulePreview = {
+  seasonId: string;
+  seasonName: string;
+  rows: DivisionRulePreviewRow[];
+};
+
 export async function listLeagueDivisions(
   leagueId: string,
   db: DbClient = prisma,
@@ -81,6 +107,220 @@ export async function listLeagueDivisions(
       active: true,
       sortOrder: true,
     },
+  });
+}
+
+export async function listLeagueDivisionRules(
+  leagueId: string,
+  asOf: Date,
+  db: DbClient = prisma,
+): Promise<DivisionRuleOption[]> {
+  const rows = await db.divisionRule.findMany({
+    where: {
+      leagueId,
+      enrollmentScope: CLASSIFICATION_SCOPE,
+      effectiveFrom: { lte: asOf },
+      OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: asOf } }],
+    },
+    orderBy: [
+      { schoolLevel: "asc" },
+      { minimumEnrollment: "asc" },
+      { maximumEnrollment: "asc" },
+      { createdAt: "asc" },
+    ],
+    select: {
+      id: true,
+      divisionId: true,
+      schoolLevel: true,
+      minimumEnrollment: true,
+      maximumEnrollment: true,
+      division: { select: { name: true } },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    divisionId: row.divisionId,
+    divisionName: row.division?.name ?? null,
+    schoolLevel: row.schoolLevel,
+    minimumEnrollment: row.minimumEnrollment,
+    maximumEnrollment: row.maximumEnrollment,
+  }));
+}
+
+/** Compute proposed classifications for active member schools without writing rows. */
+export async function previewLeagueDivisionRules(input: {
+  leagueId: string;
+  seasonId: string;
+  rules: ProposedDivisionRule[];
+  db?: DbClient;
+}): Promise<DivisionRulePreview> {
+  const db = input.db ?? prisma;
+  assertValidRuleConfiguration(input.rules);
+
+  const season = await db.season.findFirst({
+    where: { id: input.seasonId, leagueId: input.leagueId },
+    select: { id: true, name: true, startsAt: true },
+  });
+  if (!season) throw new Error("Season not found in this league.");
+
+  const divisionNames = await loadRuleDivisionNames(db, input.leagueId, input.rules);
+  const memberships = await db.leagueMembership.findMany({
+    where: { leagueId: input.leagueId, status: "ACTIVE" },
+    orderBy: { school: { name: "asc" } },
+    select: {
+      school: {
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          enrollments: {
+            where: { scope: CLASSIFICATION_SCOPE },
+            orderBy: [{ schoolYear: "desc" }, { importedAt: "desc" }, { createdAt: "desc" }],
+            take: 1,
+            select: {
+              id: true,
+              schoolYear: true,
+              enrollment: true,
+              scope: true,
+              source: true,
+              datasetRelease: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const rules = input.rules.map((rule, index): DomainDivisionRule => ({
+    id: rule.id ?? `preview-rule-${index + 1}`,
+    divisionId: rule.divisionId,
+    divisionName: rule.divisionId ? divisionNames.get(rule.divisionId) ?? null : null,
+    schoolLevel: rule.schoolLevel,
+    minimumEnrollment: rule.minimumEnrollment,
+    maximumEnrollment: rule.maximumEnrollment,
+    effectiveFrom: season.startsAt,
+    effectiveUntil: null,
+  }));
+
+  const rows = memberships.map(({ school }): DivisionRulePreviewRow => {
+    const enrollment = school.enrollments[0] ? toEnrollmentRecord(school.enrollments[0]) : null;
+    const result = classifySchool({
+      schoolName: school.name,
+      schoolLevel: school.level,
+      enrollment,
+      rules,
+      asOf: season.startsAt,
+      scope: CLASSIFICATION_SCOPE,
+    });
+
+    return {
+      schoolId: school.id,
+      schoolName: school.name,
+      schoolLevel: school.level,
+      enrollment: enrollment?.enrollment ?? null,
+      status: result.status,
+      divisionName: result.divisionName,
+      explanation: result.explanation,
+    };
+  });
+
+  return {
+    seasonId: season.id,
+    seasonName: season.name,
+    rows,
+  };
+}
+
+/** Save the current season's rule set. Historical, referenced rules cannot be removed. */
+export async function replaceLeagueDivisionRules(input: {
+  leagueId: string;
+  seasonId: string;
+  actorUserId: string;
+  rules: ProposedDivisionRule[];
+  db?: PrismaClient;
+}): Promise<DivisionRuleOption[]> {
+  assertValidRuleConfiguration(input.rules);
+  const client = input.db ?? prisma;
+
+  return client.$transaction(async (tx) => {
+    const season = await tx.season.findFirst({
+      where: { id: input.seasonId, leagueId: input.leagueId },
+      select: { id: true, startsAt: true },
+    });
+    if (!season) throw new Error("Season not found in this league.");
+
+    await loadRuleDivisionNames(tx, input.leagueId, input.rules);
+    const before = await listLeagueDivisionRules(input.leagueId, season.startsAt, tx);
+    const beforeById = new Map(before.map((rule) => [rule.id, rule]));
+    const retainedIds = input.rules.flatMap((rule) => (rule.id ? [rule.id] : []));
+
+    if (new Set(retainedIds).size !== retainedIds.length) {
+      throw new Error("The same division rule was submitted more than once.");
+    }
+    for (const id of retainedIds) {
+      if (!beforeById.has(id)) {
+        throw new Error("The division rules are out of date. Refresh and try again.");
+      }
+    }
+
+    const removedIds = before
+      .filter((rule) => !retainedIds.includes(rule.id))
+      .map((rule) => rule.id);
+    if (removedIds.length > 0) {
+      const referenced = await tx.divisionRule.findMany({
+        where: { id: { in: removedIds } },
+        select: {
+          id: true,
+          _count: { select: { classifications: true } },
+        },
+      });
+      if (referenced.some((rule) => rule._count.classifications > 0)) {
+        throw new Error(
+          "A rule already used by a classification cannot be removed. Keep it for audit history.",
+        );
+      }
+      await tx.divisionRule.deleteMany({ where: { id: { in: removedIds } } });
+    }
+
+    for (const rule of input.rules) {
+      const data = {
+        divisionId: rule.divisionId,
+        schoolLevel: rule.schoolLevel,
+        enrollmentScope: CLASSIFICATION_SCOPE,
+        minimumEnrollment: rule.minimumEnrollment,
+        maximumEnrollment: rule.maximumEnrollment,
+        effectiveFrom: season.startsAt,
+        effectiveUntil: null,
+      };
+
+      if (rule.id) {
+        await tx.divisionRule.update({ where: { id: rule.id }, data });
+      } else {
+        await tx.divisionRule.create({
+          data: {
+            leagueId: input.leagueId,
+            ...data,
+          },
+        });
+      }
+    }
+
+    const after = await listLeagueDivisionRules(input.leagueId, season.startsAt, tx);
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actorUserId,
+        action: "LEAGUE.DIVISION_RULES_UPDATE",
+        entityType: "League",
+        entityId: input.leagueId,
+        before,
+        after,
+        metadata: { seasonId: season.id },
+        leagueId: input.leagueId,
+      },
+    });
+
+    return after;
   });
 }
 
@@ -351,6 +591,38 @@ export async function upsertLeagueDivisions(input: {
 
     return after;
   });
+}
+
+function assertValidRuleConfiguration(rules: ProposedDivisionRule[]) {
+  const issues = validateDivisionRuleConfiguration(rules);
+  if (issues.length > 0) {
+    throw new Error(issues[0].message);
+  }
+}
+
+async function loadRuleDivisionNames(
+  db: DbClient,
+  leagueId: string,
+  rules: ProposedDivisionRule[],
+): Promise<Map<string, string>> {
+  const divisionIds = Array.from(
+    new Set(rules.flatMap((rule) => (rule.divisionId ? [rule.divisionId] : []))),
+  );
+  if (divisionIds.length === 0) return new Map();
+
+  const divisions = await db.division.findMany({
+    where: {
+      id: { in: divisionIds },
+      leagueId,
+      active: true,
+    },
+    select: { id: true, name: true },
+  });
+  if (divisions.length !== divisionIds.length) {
+    throw new Error("Every rule must use an active division from this league.");
+  }
+
+  return new Map(divisions.map((division) => [division.id, division.name]));
 }
 
 async function calculateSeasonSchool(

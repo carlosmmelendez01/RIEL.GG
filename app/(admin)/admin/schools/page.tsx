@@ -17,6 +17,7 @@ import { Building2, CircleAlert, GraduationCap, Mail, ShieldCheck, Users } from 
 import { AdminTopbar } from "@/components/admin/topbar";
 import { LeagueAdminEmptyState } from "@/components/admin/empty-state";
 import { InviteSchoolDialog } from "@/components/admin/invite-school-dialog";
+import { ManageDivisionRulesDialog } from "@/components/admin/manage-division-rules-dialog";
 import { ManageSchoolDivisionsDialog } from "@/components/admin/manage-school-divisions-dialog";
 import { PendingApplicationsCard } from "@/components/admin/pending-applications-card";
 import { SchoolClassificationOverride } from "@/components/admin/school-classification-override";
@@ -50,7 +51,7 @@ export default async function AdminSchoolsPage() {
     loadLeagueSchoolDirectory(ctx.league.id),
     loadPendingApplications(ctx.league.id),
   ]);
-  const { schools, divisions } = directory;
+  const { schools, divisions, rules, season } = directory;
 
   return (
     <>
@@ -78,6 +79,12 @@ export default async function AdminSchoolsPage() {
                 leagueName={ctx.league.name}
                 options={divisions}
               />
+              <ManageDivisionRulesDialog
+                leagueName={ctx.league.name}
+                season={season}
+                divisions={divisions}
+                rules={rules}
+              />
               {schools.length > 0 ? (
                 <InviteSchoolDialog
                   leagueName={ctx.league.name}
@@ -95,6 +102,12 @@ export default async function AdminSchoolsPage() {
                   <ManageSchoolDivisionsDialog
                     leagueName={ctx.league.name}
                     options={divisions}
+                  />
+                  <ManageDivisionRulesDialog
+                    leagueName={ctx.league.name}
+                    season={season}
+                    divisions={divisions}
+                    rules={rules}
                   />
                   <InviteSchoolDialog leagueName={ctx.league.name} />
                 </div>

@@ -39,6 +39,7 @@ import { generateInviteCode } from "@/lib/invite/helpers";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
 import { loadSchoolAgreementStatus } from "@/lib/compliance/agreements";
 import {
+  registerTeamForCompetitionForLeagueAdmin,
   registerTeamForCompetitionForUser,
   type RegisterTeamForCompetitionResult,
 } from "@/lib/team/registration-service";
@@ -69,6 +70,8 @@ function revalidateCoachSurfaces(teamId?: string) {
 function revalidateAdminSurfaces(competitionId?: string) {
   revalidatePath("/admin");
   revalidatePath("/admin/competitions");
+  revalidatePath("/admin/schools");
+  revalidatePath("/admin/schools/[schoolId]", "page");
   if (competitionId) revalidatePath(`/admin/competitions/${competitionId}`);
   revalidatePath("/admin/scheduler");
 }
@@ -212,6 +215,32 @@ export async function registerTeamForCompetition(
   if (result.ok) {
     revalidateCoachSurfaces(teamId);
     revalidateAdminSurfaces(competitionId);
+  }
+  return result;
+}
+
+/**
+ * League-side rescue path when a school needs help completing registration.
+ * The service re-checks the exact competition league and limits this to an
+ * OWNER or ADMIN adminship; STAFF can inspect the school but cannot mutate it.
+ */
+export async function registerTeamForCompetitionAsLeagueAdmin(
+  input: z.infer<typeof RegisterInput>,
+): Promise<RegisterTeamResult> {
+  const parsed = RegisterInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "You need to be signed in." };
+
+  const result = await registerTeamForCompetitionForLeagueAdmin({
+    userId: user.id,
+    teamId: parsed.data.teamId,
+    competitionId: parsed.data.competitionId,
+  });
+  if (result.ok) {
+    revalidateCoachSurfaces(parsed.data.teamId);
+    revalidateAdminSurfaces(parsed.data.competitionId);
   }
   return result;
 }

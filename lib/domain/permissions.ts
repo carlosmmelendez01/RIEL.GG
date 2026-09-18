@@ -47,6 +47,7 @@ export type Permission =
   // School and coach administration
   | "school.approve"
   | "classification.override"
+  | "registration.registerForSchool"
   | "registration.approveLate"
   | "registration.approveRoster"
   // Competition operations
@@ -95,6 +96,7 @@ const LEAGUE_MATRIX: Record<LeagueRole, Grant[]> = {
     { permission: "competition.publish" },
     { permission: "school.approve" },
     { permission: "classification.override" },
+    { permission: "registration.registerForSchool" },
     { permission: "registration.approveLate" },
     { permission: "registration.approveRoster" },
     { permission: "schedule.manage" },
@@ -110,6 +112,7 @@ const LEAGUE_MATRIX: Record<LeagueRole, Grant[]> = {
     { permission: "competition.publish" },
     { permission: "school.approve" },
     { permission: "classification.override" },
+    { permission: "registration.registerForSchool" },
     { permission: "registration.approveLate" },
     { permission: "registration.approveRoster" },
     { permission: "schedule.manage" },
@@ -128,6 +131,7 @@ const LEAGUE_MATRIX: Record<LeagueRole, Grant[]> = {
   ],
   SCHOOL_SUPPORT: [
     { permission: "school.approve" },
+    { permission: "registration.registerForSchool" },
     { permission: "registration.approveLate" },
     { permission: "registration.approveRoster" },
     { permission: "report.view" },

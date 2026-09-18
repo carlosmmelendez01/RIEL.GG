@@ -35,6 +35,7 @@ describe("tenant isolation", () => {
     const a = leagueAdmin("ADMIN", LEAGUE_A);
     expect(can(a, "school.approve", { leagueId: LEAGUE_A })).toBe(true);
     expect(can(a, "school.approve", { leagueId: LEAGUE_B })).toBe(false);
+    expect(can(a, "registration.registerForSchool", { leagueId: LEAGUE_B })).toBe(false);
     expect(can(a, "competition.publish", { leagueId: LEAGUE_B })).toBe(false);
     expect(can(a, "classification.override", { leagueId: LEAGUE_B })).toBe(false);
   });
@@ -116,6 +117,7 @@ describe("league role separation", () => {
       "competition.publish",
       "school.approve",
       "classification.override",
+      "registration.registerForSchool",
       "registration.approveLate",
       "schedule.manage",
       "match.resolve",
@@ -129,8 +131,19 @@ describe("league role separation", () => {
   it("SCHOOL_SUPPORT can approve schools but not configure the league", () => {
     const s = leagueAdmin("SCHOOL_SUPPORT");
     expect(can(s, "school.approve", { leagueId: LEAGUE_A })).toBe(true);
+    expect(can(s, "registration.registerForSchool", { leagueId: LEAGUE_A })).toBe(true);
     expect(can(s, "league.configure", { leagueId: LEAGUE_A })).toBe(false);
     expect(can(s, "classification.override", { leagueId: LEAGUE_A })).toBe(false);
+  });
+
+  it("owners and admins can register for a member school without gaining roster edit access", () => {
+    for (const role of ["OWNER", "ADMIN"] as LeagueRole[]) {
+      const admin = leagueAdmin(role);
+      expect(
+        can(admin, "registration.registerForSchool", { leagueId: LEAGUE_A }),
+      ).toBe(true);
+      expect(can(admin, "roster.edit", { schoolId: SCHOOL_A })).toBe(false);
+    }
   });
 });
 

@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { SCHOOL_PARTICIPATION_AGREEMENT_VERSION } from "@/lib/compliance/agreements";
 import { prisma } from "@/lib/db/prisma";
+import { can, type Actor } from "@/lib/domain/permissions";
 import { evaluateTeamCompetitionEligibility } from "@/lib/eligibility/team-competition";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -10,14 +11,54 @@ export type RegisterTeamForCompetitionResult =
   | { ok: true; rosterId: string; registrationStatus: "PENDING" | "APPROVED" }
   | { ok: false; error: string };
 
+type RegistrationAuthority =
+  | { kind: "SCHOOL"; userId: string }
+  | { kind: "LEAGUE_ADMIN"; userId: string };
+
 export async function registerTeamForCompetitionForUser(input: {
   userId: string;
   teamId: string;
   competitionId: string;
   db?: PrismaClient;
 }): Promise<RegisterTeamForCompetitionResult> {
+  return registerTeamForCompetition({
+    authority: { kind: "SCHOOL", userId: input.userId },
+    teamId: input.teamId,
+    competitionId: input.competitionId,
+    db: input.db,
+  });
+}
+
+/**
+ * Register an eligible member-school team on behalf of its coach.
+ *
+ * This does not impersonate the coach or grant the league admin roster-edit
+ * access. The admin must hold an explicit league-side permission in the same
+ * league as the competition, and the resulting roster is approved immediately
+ * because the registering actor is also an approval authority.
+ */
+export async function registerTeamForCompetitionForLeagueAdmin(input: {
+  userId: string;
+  teamId: string;
+  competitionId: string;
+  db?: PrismaClient;
+}): Promise<RegisterTeamForCompetitionResult> {
+  return registerTeamForCompetition({
+    authority: { kind: "LEAGUE_ADMIN", userId: input.userId },
+    teamId: input.teamId,
+    competitionId: input.competitionId,
+    db: input.db,
+  });
+}
+
+async function registerTeamForCompetition(input: {
+  authority: RegistrationAuthority;
+  teamId: string;
+  competitionId: string;
+  db?: PrismaClient;
+}): Promise<RegisterTeamForCompetitionResult> {
   const db = input.db ?? prisma;
-  const { userId, teamId, competitionId } = input;
+  const { authority, teamId, competitionId } = input;
 
   const [team, competition] = await Promise.all([
     db.team.findUnique({
@@ -62,7 +103,13 @@ export async function registerTeamForCompetitionForUser(input: {
   if (team.archived) return { ok: false, error: "This team is archived." };
   if (!competition) return { ok: false, error: "Competition not found." };
 
-  const coach = await loadSchoolCoach(db, userId, team.schoolId);
+  const actorCanRegister = authority.kind === "SCHOOL"
+    ? (await loadSchoolCoach(db, authority.userId, team.schoolId)) !== null
+    : await leagueAdminCanRegisterForSchool(
+        db,
+        authority.userId,
+        competition.season.leagueId,
+      );
   const [agreementAccepted, membership, classification, competitionRosters] = await Promise.all([
     schoolAgreementAccepted(db, team.schoolId),
     db.leagueMembership.findUnique({
@@ -125,7 +172,7 @@ export async function registerTeamForCompetitionForUser(input: {
       registrationOpensAt: competition.registrationOpensAt,
       registrationClosesAt: competition.registrationClosesAt,
     },
-    actor: { canRegister: coach !== null },
+    actor: { canRegister: actorCanRegister },
     state: {
       registeredTeamCount: competitionRosters.filter(
         (roster) =>
@@ -136,7 +183,11 @@ export async function registerTeamForCompetitionForUser(input: {
   });
   if (!decision.eligible) return { ok: false, error: decision.message };
 
-  const registrationStatus = competition.registrationRequiresApproval ? "PENDING" : "APPROVED";
+  const registrationStatus = authority.kind === "LEAGUE_ADMIN"
+    ? "APPROVED"
+    : competition.registrationRequiresApproval
+      ? "PENDING"
+      : "APPROVED";
 
   const roster = await db.$transaction(async (tx) => {
     const created = await tx.roster.create({
@@ -150,14 +201,21 @@ export async function registerTeamForCompetitionForUser(input: {
 
     await tx.auditLog.create({
       data: {
-        actorUserId: userId,
-        action: "ROSTER.REGISTER",
+        actorUserId: authority.userId,
+        action:
+          authority.kind === "LEAGUE_ADMIN"
+            ? "ROSTER.REGISTER_BY_LEAGUE_ADMIN"
+            : "ROSTER.REGISTER",
         entityType: "Roster",
         entityId: created.id,
         after: {
           teamId,
           competitionId,
           status: registrationStatus,
+        },
+        metadata: {
+          authority: authority.kind,
+          registeredOnBehalfOfSchool: authority.kind === "LEAGUE_ADMIN",
         },
         leagueId: competition.season.leagueId,
         competitionId: competition.id,
@@ -169,6 +227,25 @@ export async function registerTeamForCompetitionForUser(input: {
   });
 
   return { ok: true, rosterId: roster.id, registrationStatus };
+}
+
+async function leagueAdminCanRegisterForSchool(
+  db: DbClient,
+  userId: string,
+  leagueId: string,
+): Promise<boolean> {
+  const adminship = await db.leagueAdminship.findUnique({
+    where: { leagueId_userId: { leagueId, userId } },
+    select: { role: true },
+  });
+  if (!adminship || adminship.role === "STAFF") return false;
+
+  const actor: Actor = {
+    userId,
+    leagueRoles: [{ leagueId, role: adminship.role }],
+    schoolRoles: [],
+  };
+  return can(actor, "registration.registerForSchool", { leagueId });
 }
 
 async function loadSchoolCoach(db: DbClient, userId: string, schoolId: string) {

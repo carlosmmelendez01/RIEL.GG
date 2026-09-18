@@ -12,7 +12,8 @@
  */
 
 import { redirect } from "next/navigation";
-import { Building2, CircleAlert, GraduationCap, Mail, ShieldCheck, Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Building2, CircleAlert, GraduationCap, Mail, ShieldCheck, Users } from "lucide-react";
 
 import { AdminTopbar } from "@/components/admin/topbar";
 import { LeagueAdminEmptyState } from "@/components/admin/empty-state";
@@ -191,6 +192,13 @@ function SchoolCard({
             </p>
             <ComplianceBadge school={school} />
           </div>
+          <Link
+            href={`/admin/schools/${school.schoolId}`}
+            className="mt-3 flex items-center justify-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-3 py-2 text-[11px] font-semibold transition-colors hover:border-[color:var(--brand-crimson)]/30 hover:bg-[color:var(--brand-crimson)]/5 hover:text-[color:var(--brand-crimson)]"
+          >
+            View teams and registrations
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </CardContent>
       </Card>
     </div>

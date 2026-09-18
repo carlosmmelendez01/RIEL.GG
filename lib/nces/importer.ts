@@ -367,7 +367,9 @@ async function streamZipFileRows(
   onRow: (row: CcdRow, context: CsvRowContext) => Promise<void>,
 ): Promise<void> {
   const entryPath = await findCsvEntryPath(zipPath, file);
-  await streamCommandStdout("unzip", ["-p", zipPath, entryPath], (stream) => parseCsvStream(entryPath, stream, onRow));
+  await streamCommandStdout("unzip", ["-p", zipPath, entryPath], (stream) =>
+    parseCcdCsvStream(entryPath, stream, onRow),
+  );
 }
 
 async function importDirectoryRows(input: {
@@ -525,26 +527,54 @@ async function importMembershipForSchool(input: {
   }
 }
 
-async function parseCsvStream(
+/**
+ * Parse a CCD CSV stream without Papa Parse's Node `header: true` mode.
+ *
+ * Papa Parse 5.5 resets duplicate-header tracking at Node stream chunk
+ * boundaries. That mutates the first data row in each chunk, turning values
+ * such as `Carmel` into `Carmel_1` and `IN` into `IN_2`. Reading the header
+ * row ourselves keeps transport chunking from changing directory data.
+ */
+export async function parseCcdCsvStream(
   entryPath: string,
   stream: Readable,
   onRow: (row: CcdRow, context: CsvRowContext) => Promise<void>,
 ): Promise<void> {
   const parser = Papa.parse(Papa.NODE_STREAM_INPUT, {
-    header: true,
+    header: false,
     skipEmptyLines: true,
-    transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
   });
 
   stream.on("error", (error) => parser.destroy(error));
   stream.pipe(parser);
+  let headers: string[] | null = null;
   let rowNumber = 1;
-  await withSuppressedPapaDuplicateHeaderWarnings(async () => {
-    for await (const row of parser as AsyncIterable<Record<string, unknown>>) {
-      await onRow(normalizeCsvRow(row), { entryPath, rowNumber });
-      rowNumber += 1;
+
+  for await (const rawRow of parser as AsyncIterable<unknown>) {
+    if (!Array.isArray(rawRow)) {
+      throw new Error(`${entryPath} produced a non-array CSV row.`);
     }
-  });
+
+    if (headers === null) {
+      headers = normalizeCsvHeaders(rawRow, entryPath);
+      continue;
+    }
+    if (rawRow.length !== headers.length) {
+      throw new Error(
+        `${entryPath} row ${rowNumber} has ${rawRow.length} columns; expected ${headers.length}.`,
+      );
+    }
+
+    const row: CcdRow = {};
+    for (const [index, header] of headers.entries()) {
+      const value = rawRow[index];
+      row[header] = value === null || value === undefined ? undefined : String(value);
+    }
+    await onRow(row, { entryPath, rowNumber });
+    rowNumber += 1;
+  }
+
+  if (headers === null) throw new Error(`${entryPath} has no CSV header row.`);
 }
 
 async function captureCommand(command: string, args: string[]): Promise<string> {
@@ -594,20 +624,6 @@ async function streamCommandStdout(
   } catch (error) {
     child.kill();
     throw error;
-  }
-}
-
-async function withSuppressedPapaDuplicateHeaderWarnings<T>(fn: () => Promise<T>): Promise<T> {
-  const originalWarn = console.warn;
-  console.warn = (message?: unknown, ...optionalParams: unknown[]) => {
-    if (typeof message === "string" && message.includes("Duplicate headers found and renamed")) return;
-    originalWarn(message, ...optionalParams);
-  };
-
-  try {
-    return await fn();
-  } finally {
-    console.warn = originalWarn;
   }
 }
 
@@ -708,12 +724,19 @@ function numberOrMax(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
 }
 
-function normalizeCsvRow(row: Record<string, unknown>): CcdRow {
-  const out: CcdRow = {};
-  for (const [key, value] of Object.entries(row)) {
-    out[key.replace(/^\uFEFF/, "").trim()] = value === null || value === undefined ? undefined : String(value);
+function normalizeCsvHeaders(rawHeaders: unknown[], entryPath: string): string[] {
+  const headers = rawHeaders.map((value) =>
+    String(value ?? "").replace(/^\uFEFF/, "").trim(),
+  );
+  const seen = new Set<string>();
+  for (const header of headers) {
+    if (!header) throw new Error(`${entryPath} contains a blank CSV header.`);
+    if (seen.has(header)) {
+      throw new Error(`${entryPath} contains the duplicate CSV header "${header}".`);
+    }
+    seen.add(header);
   }
-  return out;
+  return headers;
 }
 
 function isIndianaRow(row: CcdRow): boolean {

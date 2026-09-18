@@ -1,8 +1,11 @@
+import { Readable } from "node:stream";
+
 import { describe, expect, it } from "vitest";
 
 import {
   discoverLatestCompleteCcdReleaseFromResponse,
   importNcesCcd,
+  parseCcdCsvStream,
   type CcdImportFile,
   type CcdRelease,
   type CcdRowReader,
@@ -32,6 +35,48 @@ describe("NCES CCD release discovery", () => {
     );
     expect(release.directory.fileURL).toBe("https://nces.ed.gov/ccd/Data/zip/ccd_sch_029_2425_w_1a_073025.zip");
     expect(release.membership.fileURL).toBe("https://nces.ed.gov/ccd/Data/zip/ccd_sch_052_2425_l_1a_073025.zip");
+  });
+});
+
+describe("NCES CCD CSV streaming", () => {
+  it("preserves repeated location values across Node stream chunk boundaries", async () => {
+    const rows: CcdRow[] = [];
+    const stream = Readable.from([
+      "ST,LCITY,LSTATE,LEVEL,NCESSCH,SCH_NAME\n",
+      "IN,Carmel,IN,High,180120000193,Carmel High School\n",
+      "IN,Fishers,IN,High,181065002392,Fishers High School\n",
+    ]);
+
+    await parseCcdCsvStream("directory.csv", stream, async (row) => {
+      rows.push(row);
+    });
+
+    expect(rows).toEqual([
+      {
+        ST: "IN",
+        LCITY: "Carmel",
+        LSTATE: "IN",
+        LEVEL: "High",
+        NCESSCH: "180120000193",
+        SCH_NAME: "Carmel High School",
+      },
+      {
+        ST: "IN",
+        LCITY: "Fishers",
+        LSTATE: "IN",
+        LEVEL: "High",
+        NCESSCH: "181065002392",
+        SCH_NAME: "Fishers High School",
+      },
+    ]);
+  });
+
+  it("rejects duplicate CSV headers instead of silently renaming them", async () => {
+    const stream = Readable.from(["ST,ST\n", "IN,IN\n"]);
+
+    await expect(parseCcdCsvStream("directory.csv", stream, async () => undefined)).rejects.toThrow(
+      'directory.csv contains the duplicate CSV header "ST".',
+    );
   });
 });
 

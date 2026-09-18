@@ -16,6 +16,7 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -27,6 +28,7 @@ import {
 } from "@/lib/email/templates/school-application-approved";
 import { generateInviteCode } from "@/lib/invite/helpers";
 import { requireLeagueAdmin } from "@/lib/league-admin/dashboard";
+import { enforceJoinRateLimit } from "@/lib/security/public-rate-limit";
 
 // --- Shared helpers ----------------------------------------------------
 
@@ -75,6 +77,22 @@ export async function applyToLeague(input: ApplyToLeagueInput): Promise<ApplyToL
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors };
   }
   const data = parsed.data;
+
+  try {
+    const rateLimit = await enforceJoinRateLimit(data.coachEmail, await headers());
+    if (rateLimit) {
+      return {
+        ok: false,
+        error: "Too many applications were submitted recently. Please wait and try again.",
+      };
+    }
+  } catch (error) {
+    console.error("Public school-application rate limit failed", error);
+    return {
+      ok: false,
+      error: "Applications are temporarily unavailable. Please try again shortly.",
+    };
+  }
 
   const league = await prisma.league.findUnique({
     where: { slug: data.leagueSlug },

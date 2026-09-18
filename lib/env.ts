@@ -4,6 +4,10 @@ const serverSchema = z.object({
   DATABASE_URL: z.string().url().optional(),
   DIRECT_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  // Dedicated HMAC key for pseudonymizing public rate-limit identifiers.
+  // DATABASE_URL is used as a server-only fallback so protection remains
+  // active during rollout; set this independently in hosted environments.
+  RATE_LIMIT_SECRET: z.string().min(32).optional(),
 
   // --- Beta / demo controls ---------------------------------------------
   // Local-development switch for one-click demo sign-in. Production refuses
@@ -74,6 +78,7 @@ const _server = serverSchema.parse({
   DATABASE_URL: opt(process.env.DATABASE_URL),
   DIRECT_URL: opt(process.env.DIRECT_URL),
   SUPABASE_SERVICE_ROLE_KEY: opt(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  RATE_LIMIT_SECRET: opt(process.env.RATE_LIMIT_SECRET),
   ENABLE_DEMO_AUTH: opt(process.env.ENABLE_DEMO_AUTH),
   DEMO_AUTH_EMAILS: opt(process.env.DEMO_AUTH_EMAILS),
   DEMO_AUTH_PASSWORD: opt(process.env.DEMO_AUTH_PASSWORD),

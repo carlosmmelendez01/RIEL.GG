@@ -24,6 +24,14 @@ export default async function BetaGatePage({
 
   const { next, error } = await searchParams;
   const safeNext = next && next.startsWith("/") ? next : "/";
+  const errorMessage =
+    error === "rate-limit"
+      ? "Too many attempts. Wait about 15 minutes and try again."
+      : error === "unavailable"
+        ? "Access verification is temporarily unavailable. Try again shortly."
+        : error
+          ? "That password didn't match. Try again."
+          : null;
 
   return (
     <div className="bg-system flex min-h-screen flex-col">
@@ -63,9 +71,9 @@ export default async function BetaGatePage({
                   className="h-11 flex-1 bg-transparent text-sm focus:outline-none"
                 />
               </div>
-              {error ? (
+              {errorMessage ? (
                 <p className="text-[12px] text-[color:var(--brand-crimson)]">
-                  That password didn&apos;t match. Try again.
+                  {errorMessage}
                 </p>
               ) : null}
               <button

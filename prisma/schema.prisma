@@ -73,15 +73,16 @@ enum ClassificationKind {
 }
 
 model League {
-  id             String             @id @default(cuid())
-  name           String
-  slug           String             @unique
-  description    String?
-  logoUrl        String?
-  primaryColor   String?
-  classification ClassificationKind @default(SCHOLASTIC)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  name            String
+  slug            String             @unique
+  description     String?
+  logoUrl         String?
+  primaryColor    String?
+  classification  ClassificationKind @default(SCHOLASTIC)
+  schoolDivisions Json? // legacy compatibility column; new code reads Division + DivisionRule
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   memberships          LeagueMembership[]
   adminships           LeagueAdminship[]
@@ -589,6 +590,29 @@ model SchoolApplication {
 
   @@index([leagueId, status, createdAt])
   @@index([coachEmail])
+}
+
+// ===========================================================================
+// PUBLIC RATE LIMITS — durable counters for anonymous mutation endpoints
+// ---------------------------------------------------------------------------
+// Serverless instances cannot safely share in-memory counters. These fixed-
+// window buckets are updated atomically in Postgres instead. `keyHash` is an
+// HMAC of the identifier (for example a client IP or normalized email); the
+// raw identifier is never stored here. Expired buckets are deleted
+// opportunistically as new requests arrive.
+// ===========================================================================
+
+model PublicRateLimitBucket {
+  action      String
+  keyHash     String
+  windowStart DateTime @db.Timestamptz(3)
+  count       Int      @default(1)
+  expiresAt   DateTime @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([action, keyHash, windowStart])
+  @@index([expiresAt])
 }
 
 // ===========================================================================

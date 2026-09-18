@@ -12,6 +12,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "db:check": "node scripts/test-connection.mjs",
+    "db:repair-seeded-schools": "node --import tsx scripts/repair-seeded-school-identities.ts",
     "acceptance:alpha": "node --import tsx scripts/acceptance-alpha.ts",
     "test": "vitest",
     "test:run": "vitest run",

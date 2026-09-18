@@ -18,6 +18,11 @@ import {
   AUDIT_EVENTS,
   type PlatformAdmin,
 } from "../lib/mock/platform-data";
+import {
+  INDIANA_CCD_SCHOOL_FIXTURES,
+  MANUAL_SCHOOL_CLASSIFICATION_FIXTURES,
+  SYNTHETIC_ENROLLMENT_NOTE,
+} from "../lib/mock/school-directory-fixtures";
 import { TEAMS, MATCHES, ANNOUNCEMENTS, COACHES, MATCH_MESSAGES, MATCH_REPORTS } from "../lib/mock/data";
 
 const prisma = new PrismaClient();
@@ -173,30 +178,87 @@ async function main() {
   const schoolByCode = new Map<string, string>(); // "MCH" → real id (for matching legacy data)
 
   for (const s of PLATFORM_SCHOOLS) {
-    const school = await prisma.school.upsert({
-      where: s.ncesId ? { ncesId: s.ncesId } : { id: s.id },
-      update: {
-        name: s.name,
-        shortName: s.shortName,
-        code: s.code,
-        city: s.city,
-        state: s.state,
-        primaryColor: s.primaryColor,
-      },
-      create: {
-        name: s.name,
-        shortName: s.shortName,
-        code: s.code,
-        city: s.city,
-        state: s.state,
-        primaryColor: s.primaryColor,
-        ncesId: s.ncesId,
-      },
-    });
+    const ccdFixture =
+      INDIANA_CCD_SCHOOL_FIXTURES[
+        s.id as keyof typeof INDIANA_CCD_SCHOOL_FIXTURES
+      ];
+    const manualClassification =
+      MANUAL_SCHOOL_CLASSIFICATION_FIXTURES[
+        s.id as keyof typeof MANUAL_SCHOOL_CLASSIFICATION_FIXTURES
+      ];
+    const data = {
+      name: s.name,
+      shortName: s.shortName,
+      code: s.code,
+      city: s.city,
+      state: s.state,
+      primaryColor: s.primaryColor,
+      ncesId: s.ncesId ?? null,
+      directorySource: ccdFixture ? ("CCD" as const) : ("MANUAL" as const),
+      externalId: ccdFixture?.externalId ?? null,
+      ...(manualClassification ? { level: manualClassification.level } : {}),
+    };
+
+    let school;
+    if (s.ncesId) {
+      school = await prisma.school.upsert({
+        where: { ncesId: s.ncesId },
+        update: data,
+        create: data,
+      });
+    } else {
+      const matches = await prisma.school.findMany({
+        where: {
+          directorySource: "MANUAL",
+          OR: [{ id: s.id }, { code: s.code }],
+        },
+        take: 2,
+        select: { id: true },
+      });
+      if (matches.length > 1) {
+        throw new Error(`Manual seed school ${s.id} (${s.code}) is ambiguous.`);
+      }
+      school = matches[0]
+        ? await prisma.school.update({ where: { id: matches[0].id }, data })
+        : await prisma.school.create({ data: { id: s.id, ...data } });
+    }
     schoolMap.set(s.id, school.id);
     if (s.code) schoolByCode.set(s.code.toUpperCase(), school.id);
   }
   console.log(`  → ${schoolMap.size} schools`);
+
+  let manualEnrollmentCount = 0;
+  for (const [seedSchoolId, fixture] of Object.entries(
+    MANUAL_SCHOOL_CLASSIFICATION_FIXTURES,
+  )) {
+    const schoolId = schoolMap.get(seedSchoolId);
+    if (!schoolId) throw new Error(`Missing manual seed school ${seedSchoolId}.`);
+
+    await prisma.schoolEnrollment.upsert({
+      where: {
+        schoolId_schoolYear_source_scope: {
+          schoolId,
+          schoolYear: fixture.schoolYear,
+          source: "LEAGUE_ADMIN",
+          scope: "GRADES_9_12",
+        },
+      },
+      update: {
+        enrollment: fixture.grades912Enrollment,
+        notes: SYNTHETIC_ENROLLMENT_NOTE,
+      },
+      create: {
+        schoolId,
+        schoolYear: fixture.schoolYear,
+        enrollment: fixture.grades912Enrollment,
+        source: "LEAGUE_ADMIN",
+        scope: "GRADES_9_12",
+        notes: SYNTHETIC_ENROLLMENT_NOTE,
+      },
+    });
+    manualEnrollmentCount += 1;
+  }
+  console.log(`  → ${manualEnrollmentCount} manual demo enrollment rows`);
 
   // ============================================================
   // 5. League adminships (PLATFORM_ADMINS → LeagueAdminship)
@@ -316,6 +378,9 @@ async function main() {
     const team = await prisma.team.upsert({
       where: { id: `seed-team-${t.id}` },
       update: {
+        schoolId,
+        gameTitleId,
+        gameFormatId,
         skillTier: TIER_MAP[t.tier] ?? "VARSITY",
         customName: t.name,
       },
